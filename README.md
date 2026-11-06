@@ -22,7 +22,7 @@ Pas de serveur à héberger : le site parle directement à Firebase, et **toute 
 
 ## Lancer en local
 
-Prérequis (une fois) : **Node.js 20+** et **Java 11+** (les émulateurs Firebase en ont besoin ; un JDK installé par IntelliJ suffit).
+Prérequis (une fois) : **Node.js 20+** et un **JDK 21+** (les émulateurs Firebase en ont besoin). Pas besoin de le mettre dans le PATH : `npm run emulators` trouve tout seul un JDK installé par IntelliJ (`~/.jdks`) ou dans Program Files.
 
 ```bash
 cd frontend
