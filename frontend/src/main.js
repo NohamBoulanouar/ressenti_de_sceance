@@ -6,7 +6,7 @@ import { $, esc } from "./util.js";
 import { renderAuth } from "./views/auth.js";
 import { renderProfile } from "./views/profile.js";
 import { renderQuestionnaire } from "./views/questionnaire.js";
-import { renderTeam } from "./views/team.js";
+import { focusSession, renderTeam } from "./views/team.js";
 import { renderAccounts } from "./views/accounts.js";
 import { renderSessions } from "./views/sessions.js";
 
@@ -51,6 +51,14 @@ onAuthStateChanged(auth, async (user) => {
     $("#retry").onclick = () => location.reload();
     $("#out").onclick = () => signOut(auth);
   }
+});
+
+// Depuis l'onglet Séances : ouvrir le suivi d'une séance précise.
+window.addEventListener("open-session", (e) => {
+  focusSession(e.detail);
+  currentTab = "team";
+  renderShell();
+  window.scrollTo({ top: 0 });
 });
 
 function renderShell() {

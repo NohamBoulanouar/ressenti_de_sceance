@@ -62,7 +62,10 @@ npm run test:rules
 - **Code d'équipe** : sans lui, impossible de créer un profil. Le changer bloque les nouvelles inscriptions avec l'ancien code, sans toucher aux comptes existants.
 - **Séances planifiées** (onglet « Séances » du coach) : date, heure facultative, type (entraînement, match…), répétition hebdomadaire possible. Pour chaque séance passée : nombre de réponses et liste de ceux qui n'ont pas répondu. Supprimer une séance supprime ses réponses.
 - **Questionnaire** : l'athlète choisit une séance planifiée des 3 dernières semaines (pas de séance future), puis 9 curseurs, blessure, gêne. **Une réponse par séance** : renvoyer pour la même séance remplace la réponse.
-- **Suivi coach** : filtres période / poste / joueur, moyennes, blessures et gênes, tableau par joueur, intensité par séance, export CSV (Excel FR).
+- **Suivi coach**, deux vues :
+  - *Par période* : filtres période / poste / joueur, moyennes, blessures et gênes, tableau par joueur, intensité par séance (clic = détail de la séance) ;
+  - *Par séance* : taux de réponse et non-répondants, moyennes de la séance, blessures, réponse de chaque athlète (valeurs préoccupantes en rouge).
+  - Export CSV (Excel FR) de la vue affichée.
 - **RGPD** : page confidentialité, consentement horodaté, modification du profil, **suppression du compte et de toutes ses réponses** par l'athlète (« Mon profil »).
 - **PWA** : « Ajouter à l'écran d'accueil » sur iPhone/Android, une fois le site en ligne.
 

@@ -109,6 +109,11 @@ export const api = {
     }
   },
 
+  /** Réponses à une séance précise (coach). */
+  async sessionResponses(id) {
+    return (await getDocs(query(collection(db, "responses"), where("sessionId", "==", id)))).docs.map((d) => d.data());
+  },
+
   /** Supprime une séance et les réponses qui s'y rapportent. */
   async deleteSession(id) {
     const answers = (await getDocs(query(collection(db, "responses"), where("sessionId", "==", id)))).docs;

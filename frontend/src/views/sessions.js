@@ -59,7 +59,10 @@ export async function renderSessions(el, me, flash) {
             <div class="missing">${st.missing.map((u) => `<span class="chip">${esc(u.name)} <span class="mu">${esc(u.poste)}</span></span>`).join("")}</div>
           </details>`
         : `<div class="mu ok">Tout le monde a répondu</div>`}
-      <button class="link danger-link" data-del="${esc(s.id)}">Supprimer la séance</button>
+      <div class="sess-actions">
+        ${st.answered ? `<button class="link" data-see="${esc(s.id)}">Voir les réponses →</button>` : ""}
+        <button class="link danger-link" data-del="${esc(s.id)}">Supprimer la séance</button>
+      </div>
     </div>`;
   };
 
@@ -116,6 +119,11 @@ export async function renderSessions(el, me, flash) {
       btn.disabled = false;
     }
   };
+
+  // « Voir les réponses » : main.js bascule sur l'onglet Suivi, vue par séance.
+  el.querySelectorAll("[data-see]").forEach((b) => {
+    b.onclick = () => window.dispatchEvent(new CustomEvent("open-session", { detail: b.dataset.see }));
+  });
 
   const byId = new Map(sessions.map((s) => [s.id, s]));
   el.querySelectorAll("[data-del]").forEach((b) => {
