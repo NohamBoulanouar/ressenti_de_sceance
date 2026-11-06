@@ -96,7 +96,7 @@ npm run test:rules
    Le site est en ligne sur `https://<id-du-projet>.web.app`.
 8. Créer **ton** compte en premier (tu deviens coach), puis le code d'équipe.
 
-Avant d'inviter l'équipe : adapter le texte de `frontend/src/views/privacy.js` (nom du club, contact).
+Avant d'inviter les athlètes : remplir `frontend/src/config.js` (nom et email du coach, durée de conservation), utilisé par la page confidentialité.
 
 ## Limites connues (V1)
 - Pas de lien magique ni de connexion Google (email + mot de passe uniquement).

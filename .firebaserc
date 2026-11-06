@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "demo-ressenti"
-  }
+    "default": "ressenti-sceance"
+  },
+  "targets": {},
+  "etags": {}
 }
