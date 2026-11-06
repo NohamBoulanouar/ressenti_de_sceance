@@ -39,3 +39,13 @@ export function setMsg(el, text, ok) {
   el.textContent = text;
   el.className = ok ? "ok" : "warn";
 }
+
+/** "mar. 6 nov." à partir de "2026-11-06" (date locale, sans décalage de fuseau). */
+export function frDay(iso) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+}
+
+/** "Entraînement · mar. 6 nov. · 18:30" */
+export const sessionLabel = (s) => [s.title, frDay(s.date), s.time].filter(Boolean).join(" · ");

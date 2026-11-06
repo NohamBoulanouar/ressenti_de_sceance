@@ -8,6 +8,7 @@ import { renderProfile } from "./views/profile.js";
 import { renderQuestionnaire } from "./views/questionnaire.js";
 import { renderTeam } from "./views/team.js";
 import { renderAccounts } from "./views/accounts.js";
+import { renderSessions } from "./views/sessions.js";
 
 const root = $("#app");
 let me = null;
@@ -55,7 +56,7 @@ onAuthStateChanged(auth, async (user) => {
 function renderShell() {
   const coach = me.role === "COACH" || me.role === "DEV"; // DEV = développeur, mêmes accès qu'un coach
   // Un coach n'est que coach : pas de questionnaire.
-  const tabs = coach ? [["team", "Suivi équipe"], ["accounts", "Équipe & code"]] : [["form", "Questionnaire"]];
+  const tabs = coach ? [["team", "Suivi"], ["sessions", "Séances"], ["accounts", "Équipe"]] : [["form", "Questionnaire"]];
   if (!tabs.some(([k]) => k === currentTab)) currentTab = tabs[0][0];
 
   root.innerHTML = `
@@ -79,5 +80,6 @@ function renderShell() {
   root.className = currentTab === "form" ? "" : "wide";
   if (currentTab === "form") renderQuestionnaire(view, me);
   if (currentTab === "team") renderTeam(view);
+  if (currentTab === "sessions") renderSessions(view, me);
   if (currentTab === "accounts") renderAccounts(view, me);
 }

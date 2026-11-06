@@ -16,11 +16,18 @@ const profile = (uid, extra = {}) => ({
   consentAt: serverTimestamp(), createdAt: serverTimestamp(), ...extra,
 });
 
+const SID = "s1"; // séance planifiée du jour
 const answer = (uid, extra = {}) => ({
-  uid, name: uid, poste: "Centres", date: today,
+  uid, name: uid, poste: "Centres", sessionId: SID, date: today,
   mus: 50, car: 50, rep: 50, conc: 50, pla: 50, conf: 50, tec: 50, tac: 50, opp: 50,
   blessure: false, gene: "", updatedAt: serverTimestamp(), ...extra,
 });
+
+/** Séance planifiée (écrite en contournant les règles, sauf dans les tests dédiés). */
+async function planSession(id = SID, date = today) {
+  await env.withSecurityRulesDisabled((c) =>
+    setDoc(doc(c.firestore(), "sessions", id), { date, time: "", title: "Entraînement", createdAt: serverTimestamp(), createdBy: "coach" }));
+}
 
 async function becomeFirstCoach(db, uid) {
   const b = writeBatch(db);
@@ -56,6 +63,7 @@ describe("premier coach", () => {
 describe("inscription athlète", () => {
   beforeEach(async () => {
     await becomeFirstCoach(ctx("coach"), "coach");
+    await planSession();
     await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
   });
 
@@ -82,6 +90,7 @@ describe("inscription athlète", () => {
 describe("profils et rôles", () => {
   beforeEach(async () => {
     await becomeFirstCoach(ctx("coach"), "coach");
+    await planSession();
     await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
     await setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" }));
     await setDoc(doc(ctx("lea"), "users", "lea"), profile("lea", { joinCode: "RUGBY2026" }));
@@ -108,6 +117,7 @@ describe("profils et rôles", () => {
 describe("réponses", () => {
   beforeEach(async () => {
     await becomeFirstCoach(ctx("coach"), "coach");
+    await planSession();
     await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
     await setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" }));
     await setDoc(doc(ctx("lea"), "users", "lea"), profile("lea", { joinCode: "RUGBY2026" }));
@@ -116,47 +126,49 @@ describe("réponses", () => {
   it("un athlète envoie et met à jour sa réponse", async () => {
     const db = ctx("paul");
     // le front lit d'abord le document (inexistant) pour savoir s'il s'agit d'une mise à jour
-    await assertSucceeds(getDoc(doc(db, "responses", `paul_${today}`)));
-    await assertFails(getDoc(doc(db, "responses", `lea_${today}`)));
-    await assertSucceeds(setDoc(doc(db, "responses", `paul_${today}`), answer("paul")));
-    await assertSucceeds(setDoc(doc(db, "responses", `paul_${today}`), answer("paul", { mus: 90 })));
+    await assertSucceeds(getDoc(doc(db, "responses", `paul_${SID}`)));
+    await assertFails(getDoc(doc(db, "responses", `lea_${SID}`)));
+    await assertSucceeds(setDoc(doc(db, "responses", `paul_${SID}`), answer("paul")));
+    await assertSucceeds(setDoc(doc(db, "responses", `paul_${SID}`), answer("paul", { mus: 90 })));
   });
   it("refuse les valeurs hors 1-100, une date future ou un mauvais identifiant", async () => {
     const db = ctx("paul");
-    await assertFails(setDoc(doc(db, "responses", `paul_${today}`), answer("paul", { mus: 150 })));
-    await assertFails(setDoc(doc(db, "responses", "paul_2099-01-01"), answer("paul", { date: "2099-01-01" })));
+    await assertFails(setDoc(doc(db, "responses", `paul_${SID}`), answer("paul", { mus: 150 })));
+    await planSession("futur", "2099-01-01");
+    await assertFails(setDoc(doc(db, "responses", "paul_futur"), answer("paul", { sessionId: "futur", date: "2099-01-01" })));
     await assertFails(setDoc(doc(db, "responses", "autre-id"), answer("paul")));
   });
   it("impossible d'écrire pour un autre ou de falsifier son nom", async () => {
     const db = ctx("paul");
-    await assertFails(setDoc(doc(db, "responses", `lea_${today}`), answer("lea")));
-    await assertFails(setDoc(doc(db, "responses", `paul_${today}`), answer("paul", { name: "Lea" })));
+    await assertFails(setDoc(doc(db, "responses", `lea_${SID}`), answer("lea")));
+    await assertFails(setDoc(doc(db, "responses", `paul_${SID}`), answer("paul", { name: "Lea" })));
   });
   it("un athlète ne lit que ses réponses, le coach lit tout", async () => {
-    await setDoc(doc(ctx("paul"), "responses", `paul_${today}`), answer("paul"));
-    await setDoc(doc(ctx("lea"), "responses", `lea_${today}`), answer("lea"));
+    await setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul"));
+    await setDoc(doc(ctx("lea"), "responses", `lea_${SID}`), answer("lea"));
     await assertSucceeds(getDocs(query(collection(ctx("paul"), "responses"), where("uid", "==", "paul"))));
     await assertFails(getDocs(collection(ctx("paul"), "responses")));
-    await assertFails(getDoc(doc(ctx("paul"), "responses", `lea_${today}`)));
+    await assertFails(getDoc(doc(ctx("paul"), "responses", `lea_${SID}`)));
     await assertSucceeds(getDocs(collection(ctx("coach"), "responses")));
   });
   it("sans profil, impossible d'envoyer une réponse", async () => {
-    await assertFails(setDoc(doc(ctx("inconnu"), "responses", `inconnu_${today}`), answer("inconnu")));
+    await assertFails(setDoc(doc(ctx("inconnu"), "responses", `inconnu_${SID}`), answer("inconnu")));
   });
 });
 
 describe("coach = rôle unique, retrait d'un membre, fin de saison", () => {
   beforeEach(async () => {
     await becomeFirstCoach(ctx("coach"), "coach");
+    await planSession();
     await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
     await setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" }));
     await setDoc(doc(ctx("lea"), "users", "lea"), profile("lea", { joinCode: "RUGBY2026" }));
-    await setDoc(doc(ctx("paul"), "responses", `paul_${today}`), answer("paul"));
-    await setDoc(doc(ctx("lea"), "responses", `lea_${today}`), answer("lea"));
+    await setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul"));
+    await setDoc(doc(ctx("lea"), "responses", `lea_${SID}`), answer("lea"));
   });
 
   it("un coach ne peut pas envoyer de réponse", async () => {
-    await assertFails(setDoc(doc(ctx("coach"), "responses", `coach_${today}`), answer("coach", { poste: "" })));
+    await assertFails(setDoc(doc(ctx("coach"), "responses", `coach_${SID}`), answer("coach", { poste: "" })));
   });
 
   it("un coach modifie son nom sans poste", async () => {
@@ -165,13 +177,13 @@ describe("coach = rôle unique, retrait d'un membre, fin de saison", () => {
 
   it("un athlète promu coach ne peut plus répondre", async () => {
     await updateDoc(doc(ctx("coach"), "users", "paul"), { role: "COACH" });
-    await assertFails(setDoc(doc(ctx("paul"), "responses", `paul_${today}`), answer("paul", { mus: 80 })));
+    await assertFails(setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul", { mus: 80 })));
   });
 
   it("le coach retire un athlète, qui ne peut plus se réinscrire", async () => {
     const db = ctx("coach");
     const b = writeBatch(db);
-    b.delete(doc(db, "responses", `paul_${today}`));
+    b.delete(doc(db, "responses", `paul_${SID}`));
     b.delete(doc(db, "users", "paul"));
     b.set(doc(db, "removed", "paul"), { name: "paul", email: "paul@club.fr", at: serverTimestamp(), by: "coach" });
     await assertSucceeds(b.commit());
@@ -185,7 +197,7 @@ describe("coach = rôle unique, retrait d'un membre, fin de saison", () => {
   it("un athlète ne peut ni retirer un autre membre, ni supprimer ses réponses", async () => {
     const db = ctx("paul");
     await assertFails(deleteDoc(doc(db, "users", "lea")));
-    await assertFails(deleteDoc(doc(db, "responses", `lea_${today}`)));
+    await assertFails(deleteDoc(doc(db, "responses", `lea_${SID}`)));
     await assertFails(setDoc(doc(db, "removed", "lea"), { name: "lea", email: "lea@club.fr", at: serverTimestamp(), by: "paul" }));
     await assertFails(getDocs(collection(db, "removed")));
   });
@@ -216,10 +228,11 @@ describe("coach = rôle unique, retrait d'un membre, fin de saison", () => {
 describe("rôle développeur", () => {
   beforeEach(async () => {
     await becomeFirstCoach(ctx("coach"), "coach");
+    await planSession();
     await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
     await setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" }));
     await setDoc(doc(ctx("noham"), "users", "noham"), profile("noham", { joinCode: "RUGBY2026" }));
-    await setDoc(doc(ctx("paul"), "responses", `paul_${today}`), answer("paul"));
+    await setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul"));
     // DEV s'attribue uniquement depuis la console (règles contournées)
     await env.withSecurityRulesDisabled((c) => updateDoc(doc(c.firestore(), "users", "noham"), { role: "DEV" }));
   });
@@ -245,7 +258,45 @@ describe("rôle développeur", () => {
   });
 
   it("le dev ne remplit pas de questionnaire mais peut changer son nom", async () => {
-    await assertFails(setDoc(doc(ctx("noham"), "responses", `noham_${today}`), answer("noham")));
+    await assertFails(setDoc(doc(ctx("noham"), "responses", `noham_${SID}`), answer("noham")));
     await assertSucceeds(updateDoc(doc(ctx("noham"), "users", "noham"), { name: "Noham" }));
+  });
+});
+
+describe("séances planifiées", () => {
+  beforeEach(async () => {
+    await becomeFirstCoach(ctx("coach"), "coach");
+    await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
+    await setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" }));
+  });
+
+  const session = (extra = {}) => ({ date: today, time: "18:30", title: "Entraînement", createdAt: serverTimestamp(), createdBy: "coach", ...extra });
+
+  it("le coach planifie une séance, l'athlète la lit mais ne peut pas en créer", async () => {
+    await assertSucceeds(setDoc(doc(ctx("coach"), "sessions", "a"), session()));
+    await assertSucceeds(getDocs(collection(ctx("paul"), "sessions")));
+    await assertFails(setDoc(doc(ctx("paul"), "sessions", "b"), session({ createdBy: "paul" })));
+    await assertFails(deleteDoc(doc(ctx("paul"), "sessions", "a")));
+  });
+
+  it("séance invalide refusée (heure, titre vide)", async () => {
+    await assertFails(setDoc(doc(ctx("coach"), "sessions", "c"), session({ time: "25h" })));
+    await assertFails(setDoc(doc(ctx("coach"), "sessions", "c"), session({ title: "  " })));
+  });
+
+  it("une réponse doit viser une séance existante, à sa date", async () => {
+    await setDoc(doc(ctx("coach"), "sessions", "a"), session());
+    const db = ctx("paul");
+    await assertSucceeds(setDoc(doc(db, "responses", "paul_a"), answer("paul", { sessionId: "a" })));
+    await assertFails(setDoc(doc(db, "responses", "paul_inexistante"), answer("paul", { sessionId: "inexistante" })));
+    await assertFails(setDoc(doc(db, "responses", "paul_a"), answer("paul", { sessionId: "a", date: "2020-01-01" })));
+  });
+
+  it("deux séances le même jour : deux réponses distinctes", async () => {
+    await setDoc(doc(ctx("coach"), "sessions", "matin"), session({ time: "09:00" }));
+    await setDoc(doc(ctx("coach"), "sessions", "soir"), session({ time: "18:00" }));
+    const db = ctx("paul");
+    await assertSucceeds(setDoc(doc(db, "responses", "paul_matin"), answer("paul", { sessionId: "matin" })));
+    await assertSucceeds(setDoc(doc(db, "responses", "paul_soir"), answer("paul", { sessionId: "soir" })));
   });
 });

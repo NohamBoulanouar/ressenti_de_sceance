@@ -41,7 +41,7 @@ Pour repartir de zéro : arrêter les émulateurs et supprimer ce dossier.
 
 ### Premier test
 1. Crée un compte : **le tout premier compte devient coach** (pas de code demandé).
-2. Onglet **Équipe & code** → *Générer* → *Créer* : c'est le code à donner aux athlètes.
+2. Onglet **Équipe** → *Générer* → *Créer* : c'est le code à donner aux athlètes.
 3. Dans une fenêtre de navigation privée, crée un compte athlète avec ce code.
 
 ### Tests des règles de sécurité
@@ -58,9 +58,10 @@ npm run test:rules
 - **Rôle DEV (développeur)** : mêmes accès qu'un coach (suivi, gestion de l'équipe), mais personne ne peut le lui retirer, le supprimer ou s'attribuer ce rôle depuis le site. Il s'attribue **uniquement depuis la console Firebase** (voir plus bas).
 - **Coach = rôle unique** : un coach n'a pas de poste, ne remplit pas de questionnaire et n'apparaît pas dans les statistiques. Un coach repassé athlète doit choisir son poste à sa prochaine connexion.
 - **Retirer un membre** : le coach supprime le profil et toutes les réponses d'un athlète ; celui-ci ne peut plus se réinscrire (même avec le code) tant que le coach ne l'a pas « autorisé à revenir ». Son compte de connexion reste dans Firebase Authentication : le supprimer à la main dans la console si besoin.
-- **Fin de saison** : le coach supprime toutes les réponses d'un clic (confirmation « SUPPRIMER »), après téléchargement automatique d'une archive CSV. Les comptes et le code d'équipe sont conservés.
+- **Fin de saison** : le coach supprime toutes les réponses et toutes les séances d'un clic (confirmation « SUPPRIMER »), après téléchargement automatique d'une archive CSV. Les comptes et le code d'équipe sont conservés.
 - **Code d'équipe** : sans lui, impossible de créer un profil. Le changer bloque les nouvelles inscriptions avec l'ancien code, sans toucher aux comptes existants.
-- **Questionnaire** : 9 curseurs, blessure, gêne. **Une réponse par séance** : renvoyer pour la même date remplace la réponse.
+- **Séances planifiées** (onglet « Séances » du coach) : date, heure facultative, type (entraînement, match…), répétition hebdomadaire possible. Pour chaque séance passée : nombre de réponses et liste de ceux qui n'ont pas répondu. Supprimer une séance supprime ses réponses.
+- **Questionnaire** : l'athlète choisit une séance planifiée des 3 dernières semaines (pas de séance future), puis 9 curseurs, blessure, gêne. **Une réponse par séance** : renvoyer pour la même séance remplace la réponse.
 - **Suivi coach** : filtres période / poste / joueur, moyennes, blessures et gênes, tableau par joueur, intensité par séance, export CSV (Excel FR).
 - **RGPD** : page confidentialité, consentement horodaté, modification du profil, **suppression du compte et de toutes ses réponses** par l'athlète (« Mon profil »).
 - **PWA** : « Ajouter à l'écran d'accueil » sur iPhone/Android, une fois le site en ligne.
@@ -75,7 +76,8 @@ npm run test:rules
 
 ### Données (Firestore)
 - `users/{uid}` : `name, poste, role, email, joinCode, consentAt, createdAt`
-- `responses/{uid}_{date}` : `uid, name, poste, date, mus, car, rep, conc, pla, conf, tec, tac, opp, blessure, gene, updatedAt`
+- `sessions/{id}` : `date, time, title, createdAt, createdBy` (séances planifiées par le coach)
+- `responses/{uid}_{sessionId}` : `uid, name, poste, sessionId, date, mus, car, rep, conc, pla, conf, tec, tac, opp, blessure, gene, updatedAt`
 - `teamCodes/{code}` : codes valides
 - `removed/{uid}` : membres retirés (bloque la réinscription)
 - `meta/setup` : marque que le premier coach existe

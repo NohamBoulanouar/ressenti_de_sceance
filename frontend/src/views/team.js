@@ -1,6 +1,6 @@
 import { api, errorMessage } from "../api.js";
 import { KEYS, POSTES, QS, SHORT } from "../questions.js";
-import { $, avg, claimView, daysAgo, esc, f0, frDate } from "../util.js";
+import { $, avg, claimView, daysAgo, esc, f0, frDate, sessionLabel } from "../util.js";
 
 const PERIODS = [["7", "7 derniers jours"], ["30", "30 derniers jours"], ["90", "3 derniers mois"], ["all", "Tout"]];
 const filters = { period: "30", poste: "", uid: "" };
@@ -10,16 +10,22 @@ export async function renderTeam(el) {
   const still = claimView(el);
   el.innerHTML = `<div class="card"><div class="mu">Chargement des réponses…</div></div>`;
   try {
-    const [rows, users] = await Promise.all([
+    const [rows, users, sessions] = await Promise.all([
       api.teamResponses(filters.period === "all" ? null : daysAgo(+filters.period - 1)),
       api.users(),
+      api.sessions(),
     ]);
+    const sessionsById = new Map(sessions.map((s) => [s.id, s]));
     // Nom et poste actuels du joueur (s'il a modifié son profil depuis ses anciennes réponses).
     // Seuls les athlètes actuels comptent (un coach n'est que coach ; un membre retiré n'a plus de données).
     const athletes = new Map(users.filter((u) => u.role === "ATHLETE").map((u) => [u.uid, u]));
     if (!still()) return;
     allRows = rows.filter((r) => athletes.has(r.uid))
-      .map((r) => ({ ...r, name: athletes.get(r.uid).name, poste: athletes.get(r.uid).poste }));
+      .map((r) => {
+        const s = sessionsById.get(r.sessionId);
+        return { ...r, name: athletes.get(r.uid).name, poste: athletes.get(r.uid).poste,
+          seance: s ? sessionLabel(s) : frDate(r.date), seanceKey: s ? `${s.date} ${s.time || ""} ${s.id}` : r.date };
+      });
   } catch (e) {
     if (still()) el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
@@ -66,13 +72,13 @@ function draw(el) {
   });
   h += `</table></div></div>`;
 
-  // Intensité par séance
-  const dates = [...new Set(rows.map((r) => r.date))].sort().slice(-12);
-  if (dates.length) {
+  // Intensité par séance (12 dernières)
+  const keys = [...new Set(rows.map((r) => r.seanceKey))].sort().slice(-12);
+  if (keys.length) {
     h += `<div class="card"><h2>Intensité (musculaire + cardio) par séance</h2>` +
-      dates.map((d) => {
-        const day = rows.filter((r) => r.date === d);
-        return bar(`${frDate(d)} (${day.length})`, avg(day.flatMap((r) => [r.mus, r.car])));
+      keys.map((k) => {
+        const group = rows.filter((r) => r.seanceKey === k);
+        return bar(`${group[0].seance} (${group.length})`, avg(group.flatMap((r) => [r.mus, r.car])));
       }).join("") + `</div>`;
   }
 
@@ -92,9 +98,9 @@ function bar(label, v, opp) {
 }
 
 export function downloadCsv(rows, prefix = "ressenti-seance") {
-  const head = ["nom", "poste", "date", ...KEYS, "blessure", "gene"];
+  const head = ["nom", "poste", "date", "seance", ...KEYS, "blessure", "gene"];
   const cell = (x) => `"${String(x ?? "").replace(/"/g, '""')}"`;
-  const lines = rows.map((r) => [r.name, r.poste, r.date, ...KEYS.map((k) => r[k]), r.blessure ? "oui" : "non", r.gene].map(cell).join(";"));
+  const lines = rows.map((r) => [r.name, r.poste, r.date, r.seance || "", ...KEYS.map((k) => r[k]), r.blessure ? "oui" : "non", r.gene].map(cell).join(";"));
   // BOM + point-virgule : ouverture directe et accents corrects dans Excel FR.
   const blob = new Blob(["﻿" + [head.join(";"), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");

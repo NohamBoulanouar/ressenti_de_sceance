@@ -79,9 +79,9 @@ export const api = {
     return this.me();
   },
 
-  /** Une réponse par athlète et par date : renvoyer pour la même date remplace la précédente. */
+  /** Une réponse par athlète et par séance : renvoyer pour la même séance remplace la précédente. */
   async submit(me, entry) {
-    const ref = doc(db, "responses", `${me.uid}_${entry.date}`);
+    const ref = doc(db, "responses", `${me.uid}_${entry.sessionId}`);
     const existed = (await getDoc(ref)).exists();
     await setDoc(ref, { ...entry, uid: me.uid, name: me.name, poste: me.poste, updatedAt: serverTimestamp() });
     return { updated: existed };
@@ -90,6 +90,29 @@ export const api = {
   async myResponses(limit = 5) {
     const snap = await getDocs(query(collection(db, "responses"), where("uid", "==", uid())));
     return snap.docs.map((d) => d.data()).sort(newestFirst).slice(0, limit);
+  },
+
+  // ── Séances planifiées ──
+  /** Séances, de la plus ancienne à la plus récente (date puis heure). */
+  async sessions() {
+    return (await getDocs(collection(db, "sessions"))).docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || ""));
+  },
+
+  /** Planifie une ou plusieurs séances [{date, time, title}]. */
+  async createSessions(list) {
+    for (let i = 0; i < list.length; i += 400) {
+      const b = writeBatch(db);
+      list.slice(i, i + 400).forEach(({ date, time, title }) =>
+        b.set(doc(collection(db, "sessions")), { date, time, title, createdAt: serverTimestamp(), createdBy: uid() }));
+      await b.commit();
+    }
+  },
+
+  /** Supprime une séance et les réponses qui s'y rapportent. */
+  async deleteSession(id) {
+    const answers = (await getDocs(query(collection(db, "responses"), where("sessionId", "==", id)))).docs;
+    await deleteInBatches([...answers.map((d) => d.ref), doc(db, "sessions", id)]);
   },
 
   // ── Coach ──
@@ -139,11 +162,12 @@ export const api = {
     await deleteDoc(doc(db, "removed", memberUid));
   },
 
-  /** Fin de saison : supprime toutes les réponses (les comptes sont conservés). Renvoie le nombre supprimé. */
-  async purgeResponses() {
-    const docs = (await getDocs(collection(db, "responses"))).docs;
-    await deleteInBatches(docs.map((d) => d.ref));
-    return docs.length;
+  /** Fin de saison : supprime toutes les réponses et les séances (les comptes sont conservés). */
+  async purgeSeason() {
+    const answers = (await getDocs(collection(db, "responses"))).docs;
+    const sessions = (await getDocs(collection(db, "sessions"))).docs;
+    await deleteInBatches([...answers, ...sessions].map((d) => d.ref));
+    return { responses: answers.length, sessions: sessions.length };
   },
 
   /** RGPD : supprime les réponses, le profil puis le compte de connexion. */

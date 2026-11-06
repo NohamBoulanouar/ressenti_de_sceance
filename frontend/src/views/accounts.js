@@ -1,5 +1,5 @@
 import { api, errorMessage } from "../api.js";
-import { $, claimView, esc, frDate, localDate, setMsg } from "../util.js";
+import { $, claimView, esc, frDate, localDate, sessionLabel, setMsg } from "../util.js";
 import { downloadCsv } from "./team.js";
 
 function randomCode() {
@@ -22,9 +22,9 @@ export async function renderAccounts(el, me) {
   }
   if (!still()) return;
   const code = codes[0];
-  const coaches = users.filter((u) => u.role === "COACH" || u.role === "DEV");
-  // Affichage seulement : le badge DEV n'est montré qu'au développeur ; les autres voient COACH.
+  // Affichage : le compte DEV n'apparaît que pour le développeur lui-même (les coachs ne le voient pas).
   const iAmDev = me.role === "DEV";
+  const coaches = users.filter((u) => u.role === "COACH" || (u.role === "DEV" && iAmDev));
   const roleLabel = (u) => (u.role === "DEV" && iAmDev ? "DEV" : "COACH");
   const athletes = users.filter((u) => u.role === "ATHLETE");
 
@@ -91,7 +91,7 @@ export async function renderAccounts(el, me) {
 
     <div class="card danger">
       <h2>Fin de saison</h2>
-      <div class="mu" style="margin-bottom:8px">Supprime <b>toutes les réponses</b> de l'équipe (les comptes et le code d'équipe sont conservés).
+      <div class="mu" style="margin-bottom:8px">Supprime <b>toutes les réponses et toutes les séances</b> (les comptes et le code d'équipe sont conservés).
       Un fichier CSV de toutes les réponses est téléchargé automatiquement juste avant, pour archive.</div>
       <button class="btn bad" id="purge" type="button">Supprimer les données de la saison</button>
       <div id="pmsg2" style="margin-top:8px;font-size:14px"></div>
@@ -145,21 +145,30 @@ export async function renderAccounts(el, me) {
   // Fin de saison
   $("#purge").onclick = async () => {
     const msg = $("#pmsg2");
-    const typed = prompt("Cette action supprime définitivement toutes les réponses de la saison.\n\nTape SUPPRIMER pour confirmer :");
+    const typed = prompt("Cette action supprime définitivement toutes les réponses et toutes les séances de la saison.\n\nTape SUPPRIMER pour confirmer :");
     if (typed === null) return;
     if (typed.trim().toUpperCase() !== "SUPPRIMER") return setMsg(msg, "Suppression annulée (mot de confirmation incorrect).");
     const btn = $("#purge");
     btn.disabled = true;
     try {
       setMsg(msg, "Export CSV en cours…", true);
-      const all = await api.teamResponses(null);
+      const [all, sessions] = await Promise.all([api.teamResponses(null), api.sessions()]);
       const names = new Map(users.map((u) => [u.uid, u]));
+      const sess = new Map(sessions.map((x) => [x.id, x]));
       if (all.length) {
-        downloadCsv(all.map((r) => ({ ...r, name: names.get(r.uid)?.name ?? r.name, poste: names.get(r.uid)?.poste || r.poste })), "archive-saison");
+        downloadCsv(all.map((r) => ({
+          ...r,
+          name: names.get(r.uid)?.name ?? r.name,
+          poste: names.get(r.uid)?.poste || r.poste,
+          seance: sess.has(r.sessionId) ? sessionLabel(sess.get(r.sessionId)) : "",
+        })), "archive-saison");
       }
       setMsg(msg, "Suppression en cours…", true);
-      const n = await api.purgeResponses();
-      setMsg(msg, n ? `${n} réponse${n > 1 ? "s" : ""} supprimée${n > 1 ? "s" : ""}. L'archive CSV a été téléchargée.` : "Aucune réponse à supprimer.", true);
+      const n = await api.purgeSeason();
+      const pl = (k, w) => `${k} ${w}${k > 1 ? "s" : ""}`;
+      setMsg(msg, n.responses || n.sessions
+        ? `${pl(n.responses, "réponse")} et ${pl(n.sessions, "séance")} supprimées.${n.responses ? " L'archive CSV a été téléchargée." : ""}`
+        : "Rien à supprimer.", true);
     } catch (e) {
       setMsg(msg, errorMessage(e));
     } finally {

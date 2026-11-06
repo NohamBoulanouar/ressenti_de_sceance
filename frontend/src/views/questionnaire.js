@@ -1,16 +1,64 @@
 import { api, errorMessage } from "../api.js";
 import { KEYS, QS } from "../questions.js";
-import { $, $$, claimView, esc, frDate, localDate, setMsg } from "../util.js";
+import { $, $$, claimView, daysAgo, esc, localDate, sessionLabel, setMsg } from "../util.js";
 
-export function renderQuestionnaire(el, me) {
+const WINDOW_DAYS = 21; // séances proposées : les 3 dernières semaines
+
+/**
+ * Questionnaire de l'athlète : il répond à une séance planifiée par le coach.
+ * flash = message à afficher après un envoi.
+ */
+export async function renderQuestionnaire(el, me, flash) {
   const still = claimView(el);
+  el.innerHTML = `<div class="card"><div class="mu">Chargement des séances…</div></div>`;
+
+  let sessions, mine;
+  try {
+    [sessions, mine] = await Promise.all([api.sessions(), api.myResponses(200)]);
+  } catch (e) {
+    if (still()) el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
+    return;
+  }
+  if (!still()) return;
+
+  const today = localDate();
+  const answered = new Set(mine.map((r) => r.sessionId).filter(Boolean));
+  // Séances passées ou du jour, les plus récentes d'abord.
+  const open = sessions.filter((s) => s.date <= today && s.date >= daysAgo(WINDOW_DAYS)).reverse();
+  const next = sessions.find((s) => s.date > today);
+  const byId = new Map(sessions.map((s) => [s.id, s]));
+
+  const history = `<div class="card" id="last"><h2>Mes dernières réponses</h2>${mine.length
+    ? mine.slice(0, 5).map((x) => {
+        const s = byId.get(x.sessionId);
+        return `<div class="row"><span class="n">${esc(s ? sessionLabel(s) : x.date)}</span><span>muscu ${x.mus} · cardio ${x.car} · plaisir ${x.pla}${x.blessure ? ' · <span class="warn">blessure</span>' : ""}</span></div>`;
+      }).join("")
+    : `<div class="mu">Aucune réponse pour l'instant.</div>`}</div>`;
+
+  if (!open.length) {
+    el.innerHTML = `
+      <div class="card">
+        <h2>Aucune séance à remplir</h2>
+        <div class="mu">Ton coach n'a pas encore planifié de séance ces derniers jours.${next ? ` Prochaine séance : <b>${esc(sessionLabel(next))}</b>.` : ""}</div>
+      </div>
+      ${flash ? `<div class="card ok">${esc(flash)}</div>` : ""}
+      ${history}`;
+    return;
+  }
+
+  // Séance proposée par défaut : la plus récente sans réponse, sinon la plus récente.
+  const preselected = open.find((s) => !answered.has(s.id)) || open[0];
+  const todo = open.filter((s) => !answered.has(s.id)).length;
+
   const form = {}; // valeurs des curseurs touchés
   let blessure = null;
 
   el.innerHTML = `
+    ${flash ? `<div class="card ok">${esc(flash)}</div>` : ""}
     <div class="card">
-      <div class="q" style="margin-top:0"><b>Date de la séance</b></div>
-      <input type="date" id="dt" value="${localDate()}" max="${localDate()}">
+      <div class="q" style="margin-top:0"><b>Séance</b>${todo ? `${todo} séance${todo > 1 ? "s" : ""} en attente de ta réponse.` : "Tu as répondu à toutes les séances 👍"}</div>
+      <select id="sess">${open.map((s) => `<option value="${esc(s.id)}" ${s.id === preselected.id ? "selected" : ""}>${answered.has(s.id) ? "✔ " : "• "}${esc(sessionLabel(s))}${answered.has(s.id) ? " (déjà répondu)" : ""}</option>`).join("")}</select>
+      <div class="mu" id="sessHint" style="margin-top:6px"></div>
     </div>
     ${QS.map(([title, qs]) => `
       <div class="card"><h2>${title}</h2>
@@ -27,7 +75,15 @@ export function renderQuestionnaire(el, me) {
     </div>
     <button class="go" id="send">Envoyer</button>
     <div id="msg" style="margin-top:8px;font-size:14px"></div>
-    <div class="card" id="last"><h2>Mes dernières réponses</h2><div class="mu">Chargement…</div></div>`;
+    ${history}`;
+
+  const hint = () => {
+    $("#sessHint").textContent = answered.has($("#sess").value)
+      ? "Tu as déjà répondu à cette séance : un nouvel envoi remplacera ta réponse."
+      : "";
+  };
+  $("#sess").onchange = hint;
+  hint();
 
   $$('input[type=range]', el).forEach((r) => {
     r.oninput = () => {
@@ -50,34 +106,16 @@ export function renderQuestionnaire(el, me) {
     if (missing.length || blessure === null) {
       return setMsg(msg, "Bouge chaque curseur (même pour le laisser à 50) et réponds à la question blessure.");
     }
+    const s = byId.get($("#sess").value);
     const btn = $("#send");
     btn.disabled = true;
     try {
-      const date = $("#dt").value;
-      const res = await api.submit(me, { date, ...form, blessure, gene: $("#ge").value.trim() });
-      renderQuestionnaire(el, me);
-      setMsg($("#msg"), res.updated
-        ? `Réponse du ${frDate(date)} mise à jour ✔`
-        : "Merci, réponse enregistrée ✔", true);
+      const res = await api.submit(me, { sessionId: s.id, date: s.date, ...form, blessure, gene: $("#ge").value.trim() });
+      renderQuestionnaire(el, me, res.updated ? `Réponse à « ${sessionLabel(s)} » mise à jour ✔` : "Merci, réponse enregistrée ✔");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       setMsg(msg, errorMessage(e));
       btn.disabled = false;
     }
   };
-
-  loadLast(still);
-}
-
-async function loadLast(still) {
-  try {
-    const rows = await api.myResponses(5);
-    if (!still()) return;
-    const box = $("#last");
-    box.innerHTML = `<h2>Mes dernières réponses</h2>` + (rows.length
-      ? rows.map((x) => `<div class="row"><span class="n">${frDate(x.date)}</span><span>muscu ${x.mus} · cardio ${x.car} · plaisir ${x.pla}${x.blessure ? ' · <span class="warn">blessure</span>' : ""}</span></div>`).join("")
-      : `<div class="mu">Aucune réponse pour l'instant.</div>`)
-      + `<div class="mu" style="margin-top:8px">Renvoyer le questionnaire pour une même date remplace la réponse précédente.</div>`;
-  } catch (e) {
-    if (still()) $("#last").innerHTML = `<h2>Mes dernières réponses</h2><div class="warn">${esc(errorMessage(e))}</div>`;
-  }
 }
