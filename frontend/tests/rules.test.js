@@ -212,3 +212,40 @@ describe("coach = rôle unique, retrait d'un membre, fin de saison", () => {
     await assertSucceeds(b.commit());
   });
 });
+
+describe("rôle développeur", () => {
+  beforeEach(async () => {
+    await becomeFirstCoach(ctx("coach"), "coach");
+    await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
+    await setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" }));
+    await setDoc(doc(ctx("noham"), "users", "noham"), profile("noham", { joinCode: "RUGBY2026" }));
+    await setDoc(doc(ctx("paul"), "responses", `paul_${today}`), answer("paul"));
+    // DEV s'attribue uniquement depuis la console (règles contournées)
+    await env.withSecurityRulesDisabled((c) => updateDoc(doc(c.firestore(), "users", "noham"), { role: "DEV" }));
+  });
+
+  it("personne ne peut s'attribuer ou attribuer DEV depuis le site", async () => {
+    await assertFails(updateDoc(doc(ctx("paul"), "users", "paul"), { role: "DEV" }));
+    await assertFails(updateDoc(doc(ctx("coach"), "users", "paul"), { role: "DEV" }));
+  });
+
+  it("le dev voit tout comme un coach et gère les rôles", async () => {
+    const db = ctx("noham");
+    await assertSucceeds(getDocs(collection(db, "responses")));
+    await assertSucceeds(getDocs(collection(db, "users")));
+    await assertSucceeds(getDocs(collection(db, "teamCodes")));
+    await assertSucceeds(updateDoc(doc(db, "users", "paul"), { role: "COACH" }));
+  });
+
+  it("un coach ne peut ni changer le rôle du dev, ni le retirer", async () => {
+    const db = ctx("coach");
+    await assertFails(updateDoc(doc(db, "users", "noham"), { role: "ATHLETE" }));
+    await assertFails(deleteDoc(doc(db, "users", "noham")));
+    await assertFails(setDoc(doc(db, "removed", "noham"), { name: "n", email: "n@club.fr", at: serverTimestamp(), by: "coach" }));
+  });
+
+  it("le dev ne remplit pas de questionnaire mais peut changer son nom", async () => {
+    await assertFails(setDoc(doc(ctx("noham"), "responses", `noham_${today}`), answer("noham")));
+    await assertSucceeds(updateDoc(doc(ctx("noham"), "users", "noham"), { name: "Noham" }));
+  });
+});

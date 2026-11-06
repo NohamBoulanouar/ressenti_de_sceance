@@ -2,7 +2,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "../firebase.js";
 import { api, errorMessage } from "../api.js";
 import { POSTES } from "../questions.js";
-import { $, esc, setMsg } from "../util.js";
+import { $, claimView, esc, setMsg } from "../util.js";
 import { PRIVACY_HTML } from "./privacy.js";
 
 /**
@@ -10,8 +10,9 @@ import { PRIVACY_HTML } from "./privacy.js";
  * current = profil : modification + suppression du compte.
  */
 export function renderProfile(el, current, onSaved, onCancel, { firstCoach = false, needPoste = false } = {}) {
+  claimView(el); // annule un éventuel chargement en cours dans cette vue
   const first = !current;
-  const coach = firstCoach || current?.role === "COACH"; // un coach n'a pas de poste
+  const coach = firstCoach || (current && current.role !== "ATHLETE"); // coach ou dev : pas de poste
   el.innerHTML = `
     ${first ? `<h1>Ressenti de séance</h1><div class="mu" style="font-size:14px">Dernière étape : présente-toi. Tu ne le feras qu'une fois.</div>` : ""}
     ${first && firstCoach ? `<div class="card ok">Tu es le premier inscrit : ton compte sera <b>coach</b>. Tu pourras ensuite créer le code d'équipe à donner aux athlètes.</div>` : ""}
@@ -39,7 +40,9 @@ export function renderProfile(el, current, onSaved, onCancel, { firstCoach = fal
     ${first ? "" : `
       <div class="card danger">
         <h2>Supprimer mon compte</h2>
-        ${current.role === "COACH"
+        ${current.role === "DEV"
+          ? `<div class="mu">Le compte développeur se gère depuis la console Firebase.</div>`
+          : current.role === "COACH"
           ? `<div class="mu">Un compte coach ne peut pas être supprimé directement : demande d'abord à un autre coach de te repasser athlète.</div>`
           : `<div class="mu" style="margin-bottom:8px">Supprime définitivement ton compte et toutes tes réponses. Confirme avec ton mot de passe.</div>
              <input type="password" id="delPwd" placeholder="Mot de passe" autocomplete="current-password">

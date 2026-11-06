@@ -1,12 +1,13 @@
 import { api, errorMessage } from "../api.js";
 import { KEYS, POSTES, QS, SHORT } from "../questions.js";
-import { $, avg, daysAgo, esc, f0, frDate } from "../util.js";
+import { $, avg, claimView, daysAgo, esc, f0, frDate } from "../util.js";
 
 const PERIODS = [["7", "7 derniers jours"], ["30", "30 derniers jours"], ["90", "3 derniers mois"], ["all", "Tout"]];
 const filters = { period: "30", poste: "", uid: "" };
 let allRows = [];
 
 export async function renderTeam(el) {
+  const still = claimView(el);
   el.innerHTML = `<div class="card"><div class="mu">Chargement des réponses…</div></div>`;
   try {
     const [rows, users] = await Promise.all([
@@ -16,10 +17,11 @@ export async function renderTeam(el) {
     // Nom et poste actuels du joueur (s'il a modifié son profil depuis ses anciennes réponses).
     // Seuls les athlètes actuels comptent (un coach n'est que coach ; un membre retiré n'a plus de données).
     const athletes = new Map(users.filter((u) => u.role === "ATHLETE").map((u) => [u.uid, u]));
+    if (!still()) return;
     allRows = rows.filter((r) => athletes.has(r.uid))
       .map((r) => ({ ...r, name: athletes.get(r.uid).name, poste: athletes.get(r.uid).poste }));
   } catch (e) {
-    el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
+    if (still()) el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
   }
   draw(el);

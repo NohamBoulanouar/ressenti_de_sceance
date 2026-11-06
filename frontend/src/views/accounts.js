@@ -1,5 +1,5 @@
 import { api, errorMessage } from "../api.js";
-import { $, esc, frDate, localDate, setMsg } from "../util.js";
+import { $, claimView, esc, frDate, localDate, setMsg } from "../util.js";
 import { downloadCsv } from "./team.js";
 
 function randomCode() {
@@ -11,16 +11,18 @@ function randomCode() {
 const dateOf = (ts) => (ts?.toDate ? frDate(localDate(ts.toDate())) : "");
 
 export async function renderAccounts(el, me) {
+  const still = claimView(el);
   el.innerHTML = `<div class="card"><div class="mu">Chargement…</div></div>`;
   let users, codes, removed;
   try {
     [users, codes, removed] = await Promise.all([api.users(), api.teamCodes(), api.removedMembers()]);
   } catch (e) {
-    el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
+    if (still()) el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
   }
+  if (!still()) return;
   const code = codes[0];
-  const coaches = users.filter((u) => u.role === "COACH");
+  const coaches = users.filter((u) => u.role === "COACH" || u.role === "DEV");
   const athletes = users.filter((u) => u.role === "ATHLETE");
 
   el.innerHTML = `
@@ -39,17 +41,18 @@ export async function renderAccounts(el, me) {
     </div>
 
     <div class="card">
-      <h2>Coachs (${coaches.length})</h2>
+      <h2>Staff (${coaches.length})</h2>
       <div class="sc2"><table>
-        <tr><th>Nom</th><th>Email</th><th>Inscrit le</th><th></th></tr>
+        <tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Inscrit le</th><th></th></tr>
         ${coaches.map((u) => `<tr>
           <td>${esc(u.name)}${u.uid === me.uid ? ' <span class="mu">(toi)</span>' : ""}</td>
           <td class="l">${esc(u.email)}</td>
+          <td><span class="badge">${u.role === "DEV" ? "DEV" : "COACH"}</span></td>
           <td>${dateOf(u.createdAt)}</td>
-          <td>${u.uid === me.uid ? "" : `<button class="btn" data-act="role" data-uid="${esc(u.uid)}" data-role="ATHLETE">Repasser athlète</button>`}</td>
+          <td>${u.uid === me.uid || u.role === "DEV" ? "" : `<button class="btn" data-act="role" data-uid="${esc(u.uid)}" data-role="ATHLETE">Repasser athlète</button>`}</td>
         </tr>`).join("")}
       </table></div>
-      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste et ne remplit pas de questionnaire. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire.</div>
+      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste et ne remplit pas de questionnaire. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire. Le rôle DEV (développeur) se gère uniquement depuis la console Firebase.</div>
     </div>
 
     <div class="card">

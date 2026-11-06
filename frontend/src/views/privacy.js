@@ -13,11 +13,11 @@ export const PRIVACY_HTML = `
   Elles ne sont collectées qu'avec ton <b>consentement explicite</b>, donné à la création du compte.</p>
   <p><b>Finalité :</b> aider ton coach à adapter les entraînements et à prévenir les blessures.
   Aucune autre utilisation, aucune revente, aucune publicité.</p>
-  <p><b>Qui voit quoi :</b> tu vois uniquement tes réponses. Seules les personnes ayant le rôle coach
-  dans l'application voient les réponses de tous les joueurs.</p>
+  <p><b>Qui voit quoi :</b> tu vois uniquement tes réponses. Les réponses de tous les joueurs sont visibles
+  par les personnes ayant le rôle coach dans l'application, ainsi que par le développeur du site.</p>
   <p><b>Développement et maintenance :</b> le site est développé et maintenu par ${c.developpeur}, pour le compte de ${c.coach}.
-  Il dispose d'un accès technique à la base de données, uniquement pour assurer le bon fonctionnement du site,
-  et n'utilise pas ces données à d'autres fins.</p>
+  Il a accès à l'ensemble des données, y compris les réponses, uniquement pour assurer le bon fonctionnement du site
+  et l'assistance technique, et ne les utilise pas à d'autres fins.</p>
   <p><b>Hébergement :</b> Google Firebase (Google Cloud), base de données hébergée en France (région europe-west9, Paris).</p>
   <p><b>Durée de conservation :</b> ${c.dureeConservation}. Les données d'un joueur sont supprimées dès qu'il supprime son compte.</p>
   <p><b>Tes droits :</b> accès, rectification (« Mon profil »), suppression (« Supprimer mon compte » dans « Mon profil »),

@@ -1,8 +1,9 @@
 import { api, errorMessage } from "../api.js";
 import { KEYS, QS } from "../questions.js";
-import { $, $$, esc, frDate, localDate, setMsg } from "../util.js";
+import { $, $$, claimView, esc, frDate, localDate, setMsg } from "../util.js";
 
 export function renderQuestionnaire(el, me) {
+  const still = claimView(el);
   const form = {}; // valeurs des curseurs touchés
   let blessure = null;
 
@@ -64,18 +65,19 @@ export function renderQuestionnaire(el, me) {
     }
   };
 
-  loadLast();
+  loadLast(still);
 }
 
-async function loadLast() {
-  const box = $("#last");
+async function loadLast(still) {
   try {
     const rows = await api.myResponses(5);
+    if (!still()) return;
+    const box = $("#last");
     box.innerHTML = `<h2>Mes dernières réponses</h2>` + (rows.length
       ? rows.map((x) => `<div class="row"><span class="n">${frDate(x.date)}</span><span>muscu ${x.mus} · cardio ${x.car} · plaisir ${x.pla}${x.blessure ? ' · <span class="warn">blessure</span>' : ""}</span></div>`).join("")
       : `<div class="mu">Aucune réponse pour l'instant.</div>`)
       + `<div class="mu" style="margin-top:8px">Renvoyer le questionnaire pour une même date remplace la réponse précédente.</div>`;
   } catch (e) {
-    box.innerHTML = `<h2>Mes dernières réponses</h2><div class="warn">${esc(errorMessage(e))}</div>`;
+    if (still()) $("#last").innerHTML = `<h2>Mes dernières réponses</h2><div class="warn">${esc(errorMessage(e))}</div>`;
   }
 }

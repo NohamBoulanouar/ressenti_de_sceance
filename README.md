@@ -55,6 +55,7 @@ npm run test:rules
 
 - **Inscription** : email + mot de passe, puis nom, poste, **code d'équipe** et **consentement RGPD** (une seule fois).
 - **Rôles** : le premier inscrit est coach. Un coach peut donner ou retirer le rôle coach aux autres, mais pas se le retirer à lui-même : il reste donc toujours au moins un coach.
+- **Rôle DEV (développeur)** : mêmes accès qu'un coach (suivi, gestion de l'équipe), mais personne ne peut le lui retirer, le supprimer ou s'attribuer ce rôle depuis le site. Il s'attribue **uniquement depuis la console Firebase** (voir plus bas).
 - **Coach = rôle unique** : un coach n'a pas de poste, ne remplit pas de questionnaire et n'apparaît pas dans les statistiques. Un coach repassé athlète doit choisir son poste à sa prochaine connexion.
 - **Retirer un membre** : le coach supprime le profil et toutes les réponses d'un athlète ; celui-ci ne peut plus se réinscrire (même avec le code) tant que le coach ne l'a pas « autorisé à revenir ». Son compte de connexion reste dans Firebase Authentication : le supprimer à la main dans la console si besoin.
 - **Fin de saison** : le coach supprime toutes les réponses d'un clic (confirmation « SUPPRIMER »), après téléchargement automatique d'une archive CSV. Les comptes et le code d'équipe sont conservés.
@@ -102,6 +103,18 @@ npm run test:rules
 8. Créer **ton** compte en premier (tu deviens coach), puis le code d'équipe.
 
 Avant d'inviter les athlètes : remplir `frontend/src/config.js` (nom et email du coach, durée de conservation), utilisé par la page confidentialité.
+
+## Se donner le rôle DEV
+
+Uniquement depuis la console Firebase (les règles l'interdisent depuis le site) :
+
+1. Console Firebase → **Firestore Database** → collection `users`.
+2. Ouvrir le document de ton compte (repérable à son champ `email`).
+3. Modifier le champ `role` : `DEV` (en majuscules), puis enregistrer.
+4. Recharger le site : le badge **DEV** apparaît.
+
+Pour retirer le rôle : remettre `role` à `COACH` ou `ATHLETE` (dans ce dernier cas, le site demandera de choisir un poste).
+⚠️ Avant de passer DEV, vérifie qu'un vrai coach existe (sinon personne ne « coache » l'équipe — tu peux toujours le promouvoir ensuite).
 
 ## Limites connues (V1)
 - Pas de lien magique ni de connexion Google (email + mot de passe uniquement).

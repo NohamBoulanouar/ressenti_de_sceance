@@ -4,7 +4,8 @@ rules_version = '2';
 // Sécurité de "Ressenti de séance" : le site parle directement à Firestore,
 // donc TOUS les droits sont contrôlés ici.
 //
-//  users/{uid}            profil : name, poste, role (ATHLETE|COACH), email, joinCode, consentAt, createdAt
+//  users/{uid}            profil : name, poste, role (ATHLETE|COACH|DEV), email, joinCode, consentAt, createdAt
+//                         DEV = développeur : mêmes droits qu'un coach, rôle attribuable UNIQUEMENT depuis la console Firebase
 //  responses/{uid_date}   une réponse par athlète et par séance
 //  teamCodes/{code}       codes d'équipe valides (lisibles par les coachs uniquement)
 //  removed/{uid}          membres retirés par un coach : ne peuvent plus se réinscrire
@@ -17,13 +18,14 @@ service cloud.firestore {
     function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
     function hasProfile() { return signedIn() && exists(userPath(request.auth.uid)); }
     function me() { return get(userPath(request.auth.uid)).data; }
-    function isCoach() { return hasProfile() && me().role == 'COACH'; }
+    // "Staff" = coach ou développeur : accès au suivi et à la gestion de l'équipe.
+    function isCoach() { return hasProfile() && me().role in ['COACH', 'DEV']; }
 
     function postes() { return ['1ère ligne', '2ème ligne', '3ème ligne', '9/10', 'Centres', 'Arrières']; }
     function validName(n) { return n is string && n.trim().size() > 0 && n.size() <= 60; }
     // Un athlète a un poste ; un coach n'en a pas (chaîne vide), ou garde celui qu'il avait comme athlète.
     function validPoste(role, p) {
-      return (role == 'ATHLETE' && p in postes()) || (role == 'COACH' && (p == '' || p in postes()));
+      return (role == 'ATHLETE' && p in postes()) || (role in ['COACH', 'DEV'] && (p == '' || p in postes()));
     }
 
     // ── Profils ────────────────────────────────────────────────────────────────
@@ -65,8 +67,9 @@ service cloud.firestore {
           && validPoste(resource.data.role, request.resource.data.poste))
         ||
         (isCoach() && request.auth.uid != uid
+          && resource.data.role != 'DEV'                       // personne ne touche au rôle d'un dev
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-          && request.resource.data.role in ['ATHLETE', 'COACH'])
+          && request.resource.data.role in ['ATHLETE', 'COACH'])   // DEV ne s'attribue pas depuis le site
       );
 
       // Suppression : son propre compte (RGPD), ou un athlète retiré de l'équipe par un coach.
@@ -115,6 +118,7 @@ service cloud.firestore {
       allow get: if signedIn() && (request.auth.uid == uid || isCoach());
       allow list: if isCoach();
       allow create: if isCoach() && request.auth.uid != uid
+        && !existsAfter(userPath(uid))         // seulement avec la suppression du profil (donc jamais un coach ou un dev)
         && request.resource.data.keys().hasOnly(['name', 'email', 'at', 'by'])
         && request.resource.data.by == request.auth.uid
         && request.resource.data.at == request.time;

@@ -53,7 +53,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function renderShell() {
-  const coach = me.role === "COACH";
+  const coach = me.role === "COACH" || me.role === "DEV"; // DEV = développeur, mêmes accès qu'un coach
   // Un coach n'est que coach : pas de questionnaire.
   const tabs = coach ? [["team", "Suivi équipe"], ["accounts", "Équipe & code"]] : [["form", "Questionnaire"]];
   if (!tabs.some(([k]) => k === currentTab)) currentTab = tabs[0][0];
@@ -66,7 +66,7 @@ function renderShell() {
         <button class="link" id="logout">Déconnexion</button>
       </div>
     </div>
-    <div class="who">${esc(me.name)}${coach ? '<span class="badge">COACH</span>' : ` · ${esc(me.poste)}`}</div>
+    <div class="who">${esc(me.name)}${coach ? `<span class="badge">${me.role}</span>` : ` · ${esc(me.poste)}`}</div>
     ${tabs.length > 1 ? `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === currentTab ? "on" : ""}">${l}</button>`).join("")}</div>` : ""}
     <div id="view"></div>`;
 

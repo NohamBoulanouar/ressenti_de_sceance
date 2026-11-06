@@ -25,6 +25,16 @@ export const avg = (a) => {
 };
 export const f0 = (v) => (v == null ? "–" : v.toFixed(0));
 
+/**
+ * Évite qu'un chargement lent n'écrive dans une vue que l'utilisateur a quittée entre-temps.
+ * const still = claimView(el); await …; if (!still()) return;
+ */
+export function claimView(el) {
+  const token = {};
+  el._viewToken = token;
+  return () => el._viewToken === token && el.isConnected;
+}
+
 export function setMsg(el, text, ok) {
   el.textContent = text;
   el.className = ok ? "ok" : "warn";
