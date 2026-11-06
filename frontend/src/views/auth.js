@@ -5,6 +5,7 @@ import {
 } from "firebase/auth";
 import { auth } from "../firebase.js";
 import { $, setMsg } from "../util.js";
+import { renderPrivacy } from "./privacy.js";
 
 const ERRORS = {
   "auth/invalid-email": "Adresse email invalide.",
@@ -15,7 +16,7 @@ const ERRORS = {
   "auth/user-not-found": "Aucun compte avec cet email.",
   "auth/wrong-password": "Email ou mot de passe incorrect.",
   "auth/too-many-requests": "Trop d'essais, réessaie dans quelques minutes.",
-  "auth/network-request-failed": "Connexion impossible : les émulateurs Firebase sont-ils lancés ?",
+  "auth/network-request-failed": "Connexion impossible : vérifie ta connexion internet (ou que les émulateurs sont lancés).",
 };
 const msgOf = (e) => ERRORS[e.code] || "Erreur : " + (e.code || e.message);
 
@@ -37,10 +38,12 @@ export function renderAuth(root, mode = "login") {
     <div class="center">
       <button class="link" id="switch">${signup ? "J'ai déjà un compte" : "Pas encore de compte ? Créer un compte"}</button>
       ${signup ? "" : `<br><button class="link" id="reset">Mot de passe oublié</button>`}
+      <br><button class="link" id="privacyLink">Confidentialité</button>
     </div>`;
 
   const msg = $("#msg");
   $("#switch").onclick = () => renderAuth(root, signup ? "login" : "signup");
+  $("#privacyLink").onclick = () => renderPrivacy(root, () => renderAuth(root, mode));
 
   $("#f").onsubmit = async (ev) => {
     ev.preventDefault();

@@ -1,4 +1,4 @@
-import { api } from "../api.js";
+import { api, errorMessage } from "../api.js";
 import { KEYS, POSTES, QS, SHORT } from "../questions.js";
 import { $, avg, daysAgo, esc, f0, frDate } from "../util.js";
 
@@ -9,9 +9,15 @@ let allRows = [];
 export async function renderTeam(el) {
   el.innerHTML = `<div class="card"><div class="mu">Chargement des réponses…</div></div>`;
   try {
-    allRows = await api.teamResponses(filters.period === "all" ? null : daysAgo(+filters.period - 1));
+    const [rows, users] = await Promise.all([
+      api.teamResponses(filters.period === "all" ? null : daysAgo(+filters.period - 1)),
+      api.users(),
+    ]);
+    // Nom et poste actuels du joueur (s'il a modifié son profil depuis ses anciennes réponses).
+    const byUid = new Map(users.map((u) => [u.uid, u]));
+    allRows = rows.map((r) => ({ ...r, name: byUid.get(r.uid)?.name ?? r.name, poste: byUid.get(r.uid)?.poste ?? r.poste }));
   } catch (e) {
-    el.innerHTML = `<div class="card warn">${esc(e.message)}</div>`;
+    el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
   }
   draw(el);

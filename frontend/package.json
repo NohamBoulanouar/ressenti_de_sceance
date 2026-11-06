@@ -4,14 +4,20 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "emulators": "node scripts/emulators.mjs",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-ressenti --config ../firebase.json \"vitest run\"",
+    "deploy": "npm run build && firebase deploy --only hosting,firestore:rules --config ../firebase.json"
   },
   "dependencies": {
     "firebase": "^12.6.0"
   },
   "devDependencies": {
-    "vite": "^7.2.0"
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase-tools": "^15.35.0",
+    "vite": "^7.2.0",
+    "vitest": "^5.1.0"
   }
 }

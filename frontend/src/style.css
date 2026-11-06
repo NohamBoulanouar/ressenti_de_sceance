@@ -73,3 +73,14 @@ td.l { text-align: left; }
 .warn { color: var(--rd); font-weight: 600; }
 .ok { color: var(--ac); font-weight: 600; }
 .center { text-align: center; }
+
+/* Consentement, confidentialité, zone sensible */
+.consent { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: 14px; cursor: pointer; }
+.consent input { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; accent-color: var(--ac); }
+.link.inline { padding: 0; font-size: inherit; text-decoration: underline; }
+.privacy { font-size: 14px; }
+.privacy p { margin: 8px 0; }
+.danger { border-color: var(--rd); }
+.btn.bad { background: var(--rd); border-color: var(--rd); color: #fff; }
+.alert { border-color: var(--rd); }
+.code { font: 700 26px/1.2 ui-monospace, "Cascadia Mono", Menlo, monospace; letter-spacing: 3px; color: var(--ac); margin: 4px 0 8px; user-select: all; }

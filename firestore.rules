@@ -1,10 +1,126 @@
 rules_version = '2';
 
-// Le navigateur ne parle jamais directement à Firestore :
-// toutes les lectures/écritures passent par l'API Spring Boot (SDK Admin),
-// qui contrôle les droits athlète / coach. On ferme donc tout accès direct.
+// ─────────────────────────────────────────────────────────────────────────────
+// Sécurité de "Ressenti de séance" : le site parle directement à Firestore,
+// donc TOUS les droits sont contrôlés ici.
+//
+//  users/{uid}            profil : name, poste, role (ATHLETE|COACH), email, joinCode, consentAt, createdAt
+//  responses/{uid_date}   une réponse par athlète et par séance
+//  teamCodes/{code}       codes d'équipe valides (lisibles par les coachs uniquement)
+//  meta/setup             créé une seule fois, quand le tout premier compte devient coach
+// ─────────────────────────────────────────────────────────────────────────────
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function hasProfile() { return signedIn() && exists(userPath(request.auth.uid)); }
+    function me() { return get(userPath(request.auth.uid)).data; }
+    function isCoach() { return hasProfile() && me().role == 'COACH'; }
+
+    function postes() { return ['1ère ligne', '2ème ligne', '3ème ligne', '9/10', 'Centres', 'Arrières']; }
+    function validName(n) { return n is string && n.trim().size() > 0 && n.size() <= 60; }
+
+    // ── Profils ────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isCoach());
+
+      function validNewProfile(d) {
+        return d.keys().hasOnly(['name', 'poste', 'role', 'email', 'joinCode', 'consentAt', 'createdAt'])
+          && d.keys().hasAll(['name', 'poste', 'role', 'email', 'consentAt', 'createdAt'])
+          && validName(d.name)
+          && d.poste in postes()
+          && d.email == request.auth.token.email
+          && d.consentAt == request.time      // consentement RGPD horodaté par le serveur
+          && d.createdAt == request.time;
+      }
+
+      // Création : soit athlète avec un code d'équipe valide,
+      // soit tout premier compte de l'équipe (devient coach, crée meta/setup dans le même lot).
+      allow create: if signedIn() && request.auth.uid == uid
+        && validNewProfile(request.resource.data)
+        && (
+          (request.resource.data.role == 'ATHLETE'
+            && request.resource.data.joinCode is string
+            && exists(/databases/$(database)/documents/teamCodes/$(request.resource.data.joinCode)))
+          ||
+          (request.resource.data.role == 'COACH'
+            && !exists(/databases/$(database)/documents/meta/setup)
+            && existsAfter(/databases/$(database)/documents/meta/setup))
+        );
+
+      // Modification par soi-même : nom et poste uniquement.
+      // Modification par un coach : rôle d'un AUTRE compte uniquement
+      // (un coach ne peut pas se retirer lui-même, il reste donc toujours au moins un coach).
+      allow update: if signedIn() && (
+        (request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'poste'])
+          && validName(request.resource.data.name)
+          && request.resource.data.poste in postes())
+        ||
+        (isCoach() && request.auth.uid != uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && request.resource.data.role in ['ATHLETE', 'COACH'])
+      );
+
+      // Suppression de son propre compte (RGPD), sauf pour un coach (qu'il se fasse d'abord retirer le rôle).
+      allow delete: if signedIn() && request.auth.uid == uid && resource.data.role == 'ATHLETE';
+    }
+
+    // ── Réponses ───────────────────────────────────────────────────────────────
+    match /responses/{id} {
+      function score(v) { return v is int && v >= 1 && v <= 100; }
+
+      function validDate(d) {
+        return d is string && d.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          // pas de date dans le futur (marge d'un jour pour les fuseaux horaires)
+          && timestamp.date(int(d[0:4]), int(d[5:7]), int(d[8:10])) <= request.time + duration.value(1, 'd');
+      }
+
+      function validResponse(r) {
+        return r.keys().hasOnly(['uid', 'name', 'poste', 'date', 'mus', 'car', 'rep', 'conc', 'pla', 'conf', 'tec', 'tac', 'opp', 'blessure', 'gene', 'updatedAt'])
+          && r.uid == request.auth.uid
+          && id == r.uid + '_' + r.date          // une seule réponse par athlète et par date
+          && validDate(r.date)
+          && r.name == me().name && r.poste == me().poste
+          && score(r.mus) && score(r.car) && score(r.rep)
+          && score(r.conc) && score(r.pla) && score(r.conf)
+          && score(r.tec) && score(r.tac) && score(r.opp)
+          && r.blessure is bool
+          && r.gene is string && r.gene.size() <= 200
+          && r.updatedAt == request.time;
+      }
+
+      // Lecture d'un document précis : le sien (même s'il n'existe pas encore) ou n'importe lequel pour un coach.
+      allow get: if hasProfile() && (id.split('_')[0] == request.auth.uid || isCoach());
+      // Requêtes : un athlète doit filtrer sur son uid, un coach peut tout lister.
+      allow list: if hasProfile() && (resource.data.uid == request.auth.uid || isCoach());
+      allow create, update: if hasProfile() && validResponse(request.resource.data)
+        && (resource == null || resource.data.uid == request.auth.uid);
+      allow delete: if hasProfile() && resource.data.uid == request.auth.uid;
+    }
+
+    // ── Codes d'équipe ─────────────────────────────────────────────────────────
+    match /teamCodes/{code} {
+      allow read: if isCoach();
+      allow create: if isCoach() && code.matches('^[A-Z0-9]{6,20}$')
+        && request.resource.data.keys().hasOnly(['createdAt', 'createdBy'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow delete: if isCoach();
+    }
+
+    // ── Initialisation (premier coach) ─────────────────────────────────────────
+    match /meta/setup {
+      allow read: if signedIn();
+      allow create: if signedIn() && !exists(/databases/$(database)/documents/meta/setup)
+        && request.resource.data.keys().hasOnly(['firstCoach', 'at'])
+        && request.resource.data.firstCoach == request.auth.uid
+        && request.resource.data.at == request.time
+        && getAfter(userPath(request.auth.uid)).data.role == 'COACH';
+    }
+
+    // Tout le reste est fermé.
     match /{document=**} {
       allow read, write: if false;
     }

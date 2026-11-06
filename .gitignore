@@ -12,10 +12,6 @@ frontend/dist/
 frontend/.env.local
 frontend/.env.*.local
 
-# Back
-backend/target/
-backend/.mvn/wrapper/maven-wrapper.jar
-
 # Firebase
 .firebase/
 emulator-data/

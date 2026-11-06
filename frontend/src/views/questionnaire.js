@@ -1,8 +1,8 @@
-import { api } from "../api.js";
+import { api, errorMessage } from "../api.js";
 import { KEYS, QS } from "../questions.js";
 import { $, $$, esc, frDate, localDate, setMsg } from "../util.js";
 
-export function renderQuestionnaire(el) {
+export function renderQuestionnaire(el, me) {
   const form = {}; // valeurs des curseurs touchés
   let blessure = null;
 
@@ -53,13 +53,13 @@ export function renderQuestionnaire(el) {
     btn.disabled = true;
     try {
       const date = $("#dt").value;
-      const res = await api.submit({ date, ...form, blessure, gene: $("#ge").value.trim() });
-      renderQuestionnaire(el);
+      const res = await api.submit(me, { date, ...form, blessure, gene: $("#ge").value.trim() });
+      renderQuestionnaire(el, me);
       setMsg($("#msg"), res.updated
         ? `Réponse du ${frDate(date)} mise à jour ✔`
         : "Merci, réponse enregistrée ✔", true);
     } catch (e) {
-      setMsg(msg, e.message);
+      setMsg(msg, errorMessage(e));
       btn.disabled = false;
     }
   };
@@ -76,6 +76,6 @@ async function loadLast() {
       : `<div class="mu">Aucune réponse pour l'instant.</div>`)
       + `<div class="mu" style="margin-top:8px">Renvoyer le questionnaire pour une même date remplace la réponse précédente.</div>`;
   } catch (e) {
-    box.innerHTML = `<h2>Mes dernières réponses</h2><div class="warn">${esc(e.message)}</div>`;
+    box.innerHTML = `<h2>Mes dernières réponses</h2><div class="warn">${esc(errorMessage(e))}</div>`;
   }
 }

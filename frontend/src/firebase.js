@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { connectAuthEmulator, getAuth } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 
 const env = import.meta.env;
 
@@ -12,7 +13,9 @@ const app = initializeApp({
 
 export const auth = getAuth(app);
 auth.languageCode = "fr";
+export const db = getFirestore(app);
 
 if (env.VITE_USE_EMULATORS === "true") {
-  connectAuthEmulator(auth, env.VITE_AUTH_EMULATOR_URL, { disableWarnings: true });
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
 }
