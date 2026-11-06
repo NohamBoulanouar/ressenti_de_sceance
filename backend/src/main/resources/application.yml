@@ -1,0 +1,16 @@
+server:
+  port: 8081   # 8080 est pris par l'émulateur Firestore
+
+spring:
+  application:
+    name: ressenti-backend
+
+app:
+  # Origines autorisées à appeler l'API (le front Vite tourne sur 5173)
+  cors-origins: http://localhost:5173,http://127.0.0.1:5173
+  firebase:
+    project-id: demo-ressenti
+    # true  = émulateurs Firebase locaux (aucun compte Google nécessaire)
+    # false = vrai projet Firebase (définir GOOGLE_APPLICATION_CREDENTIALS)
+    emulator: true
+    firestore-emulator-host: localhost:8080

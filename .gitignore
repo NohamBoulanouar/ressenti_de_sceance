@@ -1,0 +1,29 @@
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# Front
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+
+# Back
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Firebase
+.firebase/
+emulator-data/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+
+# Secrets
+service-account*.json
+*.pem
