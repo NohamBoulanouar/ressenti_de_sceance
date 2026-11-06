@@ -23,6 +23,9 @@ export async function renderAccounts(el, me) {
   if (!still()) return;
   const code = codes[0];
   const coaches = users.filter((u) => u.role === "COACH" || u.role === "DEV");
+  // Affichage seulement : le badge DEV n'est montré qu'au développeur ; les autres voient COACH.
+  const iAmDev = me.role === "DEV";
+  const roleLabel = (u) => (u.role === "DEV" && iAmDev ? "DEV" : "COACH");
   const athletes = users.filter((u) => u.role === "ATHLETE");
 
   el.innerHTML = `
@@ -47,12 +50,12 @@ export async function renderAccounts(el, me) {
         ${coaches.map((u) => `<tr>
           <td>${esc(u.name)}${u.uid === me.uid ? ' <span class="mu">(toi)</span>' : ""}</td>
           <td class="l">${esc(u.email)}</td>
-          <td><span class="badge">${u.role === "DEV" ? "DEV" : "COACH"}</span></td>
+          <td><span class="badge">${roleLabel(u)}</span></td>
           <td>${dateOf(u.createdAt)}</td>
           <td>${u.uid === me.uid || u.role === "DEV" ? "" : `<button class="btn" data-act="role" data-uid="${esc(u.uid)}" data-role="ATHLETE">Repasser athlète</button>`}</td>
         </tr>`).join("")}
       </table></div>
-      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste et ne remplit pas de questionnaire. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire. Le rôle DEV (développeur) se gère uniquement depuis la console Firebase.</div>
+      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste et ne remplit pas de questionnaire. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire.${iAmDev ? " Le rôle DEV se gère uniquement depuis la console Firebase." : ""}</div>
     </div>
 
     <div class="card">
