@@ -22,6 +22,15 @@ const uid = () => {
   return auth.currentUser.uid;
 };
 const withId = (d) => ({ uid: d.id, ...d.data() });
+/** Un lot Firestore est limité à 500 opérations : on découpe par 400. */
+async function deleteInBatches(refs) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const b = writeBatch(db);
+    refs.slice(i, i + 400).forEach((r) => b.delete(r));
+    await b.commit();
+  }
+}
+
 const newestFirst = (a, b) => b.date.localeCompare(a.date) || (a.name || "").localeCompare(b.name || "");
 
 export const api = {
@@ -36,7 +45,12 @@ export const api = {
     return snap.exists() ? withId(snap) : null;
   },
 
-  /** Création du profil. Premier compte de l'équipe : coach. Sinon : athlète avec code d'équipe. */
+  /** true si un coach a retiré cet utilisateur de l'équipe. */
+  async isRemoved() {
+    return (await getDoc(doc(db, "removed", uid()))).exists();
+  },
+
+  /** Création du profil. Premier compte de l'équipe : coach (sans poste). Sinon : athlète avec code d'équipe. */
   async createProfile({ name, poste, joinCode }) {
     const id = uid();
     const base = {
@@ -45,7 +59,7 @@ export const api = {
     };
     if (!(await this.setupDone())) {
       const b = writeBatch(db);
-      b.set(doc(db, "users", id), { ...base, role: "COACH" });
+      b.set(doc(db, "users", id), { ...base, poste: "", role: "COACH" });
       b.set(doc(db, "meta", "setup"), { firstCoach: id, at: serverTimestamp() });
       await b.commit();
     } else {
@@ -59,8 +73,9 @@ export const api = {
     return this.me();
   },
 
+  /** poste = null pour un coach : seul le nom change. */
   async updateProfile(name, poste) {
-    await updateDoc(doc(db, "users", uid()), { name, poste });
+    await updateDoc(doc(db, "users", uid()), poste == null ? { name } : { name, poste });
     return this.me();
   },
 
@@ -104,16 +119,39 @@ export const api = {
     await b.commit();
   },
 
+  /** Retire un athlète : supprime son profil et ses réponses, et bloque sa réinscription. */
+  async removeMember(member) {
+    const docs = (await getDocs(query(collection(db, "responses"), where("uid", "==", member.uid)))).docs;
+    await deleteInBatches(docs.map((d) => d.ref));
+    const b = writeBatch(db);
+    b.delete(doc(db, "users", member.uid));
+    b.set(doc(db, "removed", member.uid), { name: member.name, email: member.email, at: serverTimestamp(), by: uid() });
+    await b.commit();
+  },
+
+  async removedMembers() {
+    return (await getDocs(collection(db, "removed"))).docs.map(withId)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || "", "fr"));
+  },
+
+  /** Autorise un membre retiré à se réinscrire (avec le code d'équipe). */
+  async allowBack(memberUid) {
+    await deleteDoc(doc(db, "removed", memberUid));
+  },
+
+  /** Fin de saison : supprime toutes les réponses (les comptes sont conservés). Renvoie le nombre supprimé. */
+  async purgeResponses() {
+    const docs = (await getDocs(collection(db, "responses"))).docs;
+    await deleteInBatches(docs.map((d) => d.ref));
+    return docs.length;
+  },
+
   /** RGPD : supprime les réponses, le profil puis le compte de connexion. */
   async deleteMyAccount(password) {
     const user = auth.currentUser;
     await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
     const mine = (await getDocs(query(collection(db, "responses"), where("uid", "==", user.uid)))).docs;
-    for (let i = 0; i < mine.length; i += 400) { // un lot Firestore est limité à 500 opérations
-      const b = writeBatch(db);
-      mine.slice(i, i + 400).forEach((d) => b.delete(d.ref));
-      await b.commit();
-    }
+    await deleteInBatches(mine.map((d) => d.ref));
     await deleteDoc(doc(db, "users", user.uid));
     await deleteUser(user);
   },

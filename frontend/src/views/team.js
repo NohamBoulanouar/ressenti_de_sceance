@@ -14,8 +14,10 @@ export async function renderTeam(el) {
       api.users(),
     ]);
     // Nom et poste actuels du joueur (s'il a modifié son profil depuis ses anciennes réponses).
-    const byUid = new Map(users.map((u) => [u.uid, u]));
-    allRows = rows.map((r) => ({ ...r, name: byUid.get(r.uid)?.name ?? r.name, poste: byUid.get(r.uid)?.poste ?? r.poste }));
+    // Seuls les athlètes actuels comptent (un coach n'est que coach ; un membre retiré n'a plus de données).
+    const athletes = new Map(users.filter((u) => u.role === "ATHLETE").map((u) => [u.uid, u]));
+    allRows = rows.filter((r) => athletes.has(r.uid))
+      .map((r) => ({ ...r, name: athletes.get(r.uid).name, poste: athletes.get(r.uid).poste }));
   } catch (e) {
     el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
@@ -87,7 +89,7 @@ function bar(label, v, opp) {
   return `<div class="row"><span class="n">${esc(label)}</span><span class="b"><i style="width:${w}%${red ? ";background:var(--rd)" : ""}"></i>${opp ? '<span class="mid"></span>' : ""}</span><span class="v">${f0(v)}</span></div>`;
 }
 
-function downloadCsv(rows) {
+export function downloadCsv(rows, prefix = "ressenti-seance") {
   const head = ["nom", "poste", "date", ...KEYS, "blessure", "gene"];
   const cell = (x) => `"${String(x ?? "").replace(/"/g, '""')}"`;
   const lines = rows.map((r) => [r.name, r.poste, r.date, ...KEYS.map((k) => r[k]), r.blessure ? "oui" : "non", r.gene].map(cell).join(";"));
@@ -95,7 +97,7 @@ function downloadCsv(rows) {
   const blob = new Blob(["﻿" + [head.join(";"), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `ressenti-seance-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }

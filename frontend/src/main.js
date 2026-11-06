@@ -11,7 +11,7 @@ import { renderAccounts } from "./views/accounts.js";
 
 const root = $("#app");
 let me = null;
-let currentTab = "form";
+let currentTab = null;
 
 // PWA : service worker uniquement sur le site publié (évite les soucis de cache en dev).
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
@@ -27,7 +27,18 @@ onAuthStateChanged(auth, async (user) => {
   root.innerHTML = `<h1>Ressenti de séance</h1><div class="mu">Chargement du profil…</div>`;
   try {
     me = await api.me();
+    if (me && me.role === "ATHLETE" && !me.poste) {
+      // Ancien coach repassé athlète : il doit choisir son poste.
+      return renderProfile(root, me, (profile) => { me = profile; renderShell(); }, null, { needPoste: true });
+    }
     if (me) return renderShell();
+    if (await api.isRemoved()) {
+      root.innerHTML = `<h1>Ressenti de séance</h1>
+        <div class="card warn">Ton compte a été retiré de l'équipe par le coach. Contacte-le si c'est une erreur.</div>
+        <div class="center"><button class="link" id="out">Se déconnecter</button></div>`;
+      $("#out").onclick = () => signOut(auth);
+      return;
+    }
     // Premier passage : nom, poste, code d'équipe et consentement, une seule fois.
     const firstCoach = !(await api.setupDone());
     renderProfile(root, null, (profile) => { me = profile; renderShell(); }, null, { firstCoach });
@@ -43,8 +54,9 @@ onAuthStateChanged(auth, async (user) => {
 
 function renderShell() {
   const coach = me.role === "COACH";
-  const tabs = [["form", "Questionnaire"], ...(coach ? [["team", "Suivi équipe"], ["accounts", "Équipe & code"]] : [])];
-  if (!tabs.some(([k]) => k === currentTab)) currentTab = "form";
+  // Un coach n'est que coach : pas de questionnaire.
+  const tabs = coach ? [["team", "Suivi équipe"], ["accounts", "Équipe & code"]] : [["form", "Questionnaire"]];
+  if (!tabs.some(([k]) => k === currentTab)) currentTab = tabs[0][0];
 
   root.innerHTML = `
     <div class="top">
@@ -54,7 +66,7 @@ function renderShell() {
         <button class="link" id="logout">Déconnexion</button>
       </div>
     </div>
-    <div class="who">${esc(me.name)} · ${esc(me.poste)}${coach ? '<span class="badge">COACH</span>' : ""}</div>
+    <div class="who">${esc(me.name)}${coach ? '<span class="badge">COACH</span>' : ` · ${esc(me.poste)}`}</div>
     ${tabs.length > 1 ? `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === currentTab ? "on" : ""}">${l}</button>`).join("")}</div>` : ""}
     <div id="view"></div>`;
 

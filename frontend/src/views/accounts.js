@@ -1,5 +1,6 @@
 import { api, errorMessage } from "../api.js";
 import { $, esc, frDate, localDate, setMsg } from "../util.js";
+import { downloadCsv } from "./team.js";
 
 function randomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans 0/O/1/I pour éviter les confusions
@@ -7,16 +8,20 @@ function randomCode() {
   return [...bytes].map((b) => chars[b % chars.length]).join("");
 }
 
+const dateOf = (ts) => (ts?.toDate ? frDate(localDate(ts.toDate())) : "");
+
 export async function renderAccounts(el, me) {
   el.innerHTML = `<div class="card"><div class="mu">Chargement…</div></div>`;
-  let users, codes;
+  let users, codes, removed;
   try {
-    [users, codes] = await Promise.all([api.users(), api.teamCodes()]);
+    [users, codes, removed] = await Promise.all([api.users(), api.teamCodes(), api.removedMembers()]);
   } catch (e) {
     el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
   }
   const code = codes[0];
+  const coaches = users.filter((u) => u.role === "COACH");
+  const athletes = users.filter((u) => u.role === "ATHLETE");
 
   el.innerHTML = `
     <div class="card ${code ? "" : "alert"}">
@@ -34,27 +39,59 @@ export async function renderAccounts(el, me) {
     </div>
 
     <div class="card">
-      <h2>Comptes de l'équipe (${users.length})</h2>
-      <div class="mu" style="margin-bottom:8px">Les athlètes créent eux-mêmes leur compte avec le code. Ici, tu donnes ou retires les droits coach (un coach ne peut pas se retirer lui-même).</div>
+      <h2>Coachs (${coaches.length})</h2>
       <div class="sc2"><table>
-        <tr><th>Nom</th><th>Email</th><th>Poste</th><th>Rôle</th><th>Inscrit le</th><th></th></tr>
-        ${users.map((u) => {
-          const coach = u.role === "COACH";
-          const self = u.uid === me.uid;
-          const created = u.createdAt?.toDate ? localDate(u.createdAt.toDate()) : "";
-          return `<tr>
-            <td>${esc(u.name)}${self ? ' <span class="mu">(toi)</span>' : ""}</td>
-            <td class="l">${esc(u.email)}</td>
-            <td>${esc(u.poste)}</td>
-            <td>${coach ? '<span class="badge">COACH</span>' : "Athlète"}</td>
-            <td>${frDate(created)}</td>
-            <td>${self ? "" : `<button class="btn ${coach ? "" : "pri"}" data-uid="${esc(u.uid)}" data-role="${coach ? "ATHLETE" : "COACH"}">${coach ? "Retirer coach" : "Passer coach"}</button>`}</td>
-          </tr>`;
-        }).join("")}
+        <tr><th>Nom</th><th>Email</th><th>Inscrit le</th><th></th></tr>
+        ${coaches.map((u) => `<tr>
+          <td>${esc(u.name)}${u.uid === me.uid ? ' <span class="mu">(toi)</span>' : ""}</td>
+          <td class="l">${esc(u.email)}</td>
+          <td>${dateOf(u.createdAt)}</td>
+          <td>${u.uid === me.uid ? "" : `<button class="btn" data-act="role" data-uid="${esc(u.uid)}" data-role="ATHLETE">Repasser athlète</button>`}</td>
+        </tr>`).join("")}
       </table></div>
+      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste et ne remplit pas de questionnaire. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire.</div>
+    </div>
+
+    <div class="card">
+      <h2>Athlètes (${athletes.length})</h2>
+      ${athletes.length ? `<div class="sc2"><table>
+        <tr><th>Nom</th><th>Email</th><th>Poste</th><th>Inscrit le</th><th></th></tr>
+        ${athletes.map((u) => `<tr>
+          <td>${esc(u.name)}</td>
+          <td class="l">${esc(u.email)}</td>
+          <td>${esc(u.poste)}</td>
+          <td>${dateOf(u.createdAt)}</td>
+          <td class="actions">
+            <button class="btn pri" data-act="role" data-uid="${esc(u.uid)}" data-role="COACH">Passer coach</button>
+            <button class="btn bad" data-act="remove" data-uid="${esc(u.uid)}">Retirer</button>
+          </td>
+        </tr>`).join("")}
+      </table></div>` : `<div class="mu">Aucun athlète inscrit pour l'instant.</div>`}
       <div id="amsg" style="margin-top:8px;font-size:14px"></div>
+    </div>
+
+    ${removed.length ? `
+    <div class="card">
+      <h2>Membres retirés (${removed.length})</h2>
+      <div class="mu" style="margin-bottom:8px">Ils ne peuvent plus se réinscrire, même avec le code. « Autoriser à revenir » leur permet de recréer un profil.</div>
+      <div class="sc2"><table>
+        <tr><th>Nom</th><th>Email</th><th>Retiré le</th><th></th></tr>
+        ${removed.map((u) => `<tr>
+          <td>${esc(u.name)}</td><td class="l">${esc(u.email)}</td><td>${dateOf(u.at)}</td>
+          <td><button class="btn" data-act="back" data-uid="${esc(u.uid)}">Autoriser à revenir</button></td>
+        </tr>`).join("")}
+      </table></div>
+    </div>` : ""}
+
+    <div class="card danger">
+      <h2>Fin de saison</h2>
+      <div class="mu" style="margin-bottom:8px">Supprime <b>toutes les réponses</b> de l'équipe (les comptes et le code d'équipe sont conservés).
+      Un fichier CSV de toutes les réponses est téléchargé automatiquement juste avant, pour archive.</div>
+      <button class="btn bad" id="purge" type="button">Supprimer les données de la saison</button>
+      <div id="pmsg2" style="margin-top:8px;font-size:14px"></div>
     </div>`;
 
+  // Code d'équipe
   $("#gen").onclick = () => { $("#newCode").value = randomCode(); };
   $("#saveCode").onclick = async () => {
     const value = $("#newCode").value.trim().toUpperCase();
@@ -69,17 +106,28 @@ export async function renderAccounts(el, me) {
     }
   };
 
-  el.querySelectorAll("button[data-uid]").forEach((b) => {
+  // Actions sur les comptes
+  const byUid = new Map([...users, ...removed].map((u) => [u.uid, u]));
+  el.querySelectorAll("button[data-act]").forEach((b) => {
     b.onclick = async () => {
-      const target = users.find((u) => u.uid === b.dataset.uid);
-      const toCoach = b.dataset.role === "COACH";
-      const question = toCoach
-        ? `Donner les droits coach à ${target.name} ? Il verra les réponses de toute l'équipe.`
-        : `Retirer les droits coach à ${target.name} ?`;
+      const target = byUid.get(b.dataset.uid);
+      const act = b.dataset.act;
+      let question;
+      if (act === "role" && b.dataset.role === "COACH") {
+        question = `Passer ${target.name} coach ?\n\nIl verra les réponses de toute l'équipe et ne remplira plus de questionnaire. Ses anciennes réponses n'apparaîtront plus dans le suivi.`;
+      } else if (act === "role") {
+        question = `Repasser ${target.name} athlète ?\n\nIl perdra l'accès au suivi de l'équipe et devra choisir son poste.`;
+      } else if (act === "remove") {
+        question = `Retirer ${target.name} de l'équipe ?\n\nSon profil et TOUTES ses réponses seront supprimés définitivement, et il ne pourra plus se réinscrire (sauf si tu l'y autorises).`;
+      } else {
+        question = `Autoriser ${target.name} à revenir ? Il pourra recréer un profil avec le code d'équipe.`;
+      }
       if (!confirm(question)) return;
       b.disabled = true;
       try {
-        await api.changeRole(target.uid, b.dataset.role);
+        if (act === "role") await api.changeRole(target.uid, b.dataset.role);
+        if (act === "remove") await api.removeMember(target);
+        if (act === "back") await api.allowBack(target.uid);
         renderAccounts(el, me);
       } catch (e) {
         setMsg($("#amsg"), errorMessage(e));
@@ -87,4 +135,29 @@ export async function renderAccounts(el, me) {
       }
     };
   });
+
+  // Fin de saison
+  $("#purge").onclick = async () => {
+    const msg = $("#pmsg2");
+    const typed = prompt("Cette action supprime définitivement toutes les réponses de la saison.\n\nTape SUPPRIMER pour confirmer :");
+    if (typed === null) return;
+    if (typed.trim().toUpperCase() !== "SUPPRIMER") return setMsg(msg, "Suppression annulée (mot de confirmation incorrect).");
+    const btn = $("#purge");
+    btn.disabled = true;
+    try {
+      setMsg(msg, "Export CSV en cours…", true);
+      const all = await api.teamResponses(null);
+      const names = new Map(users.map((u) => [u.uid, u]));
+      if (all.length) {
+        downloadCsv(all.map((r) => ({ ...r, name: names.get(r.uid)?.name ?? r.name, poste: names.get(r.uid)?.poste || r.poste })), "archive-saison");
+      }
+      setMsg(msg, "Suppression en cours…", true);
+      const n = await api.purgeResponses();
+      setMsg(msg, n ? `${n} réponse${n > 1 ? "s" : ""} supprimée${n > 1 ? "s" : ""}. L'archive CSV a été téléchargée.` : "Aucune réponse à supprimer.", true);
+    } catch (e) {
+      setMsg(msg, errorMessage(e));
+    } finally {
+      btn.disabled = false;
+    }
+  };
 }

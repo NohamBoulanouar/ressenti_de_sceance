@@ -55,6 +55,9 @@ npm run test:rules
 
 - **Inscription** : email + mot de passe, puis nom, poste, **code d'équipe** et **consentement RGPD** (une seule fois).
 - **Rôles** : le premier inscrit est coach. Un coach peut donner ou retirer le rôle coach aux autres, mais pas se le retirer à lui-même : il reste donc toujours au moins un coach.
+- **Coach = rôle unique** : un coach n'a pas de poste, ne remplit pas de questionnaire et n'apparaît pas dans les statistiques. Un coach repassé athlète doit choisir son poste à sa prochaine connexion.
+- **Retirer un membre** : le coach supprime le profil et toutes les réponses d'un athlète ; celui-ci ne peut plus se réinscrire (même avec le code) tant que le coach ne l'a pas « autorisé à revenir ». Son compte de connexion reste dans Firebase Authentication : le supprimer à la main dans la console si besoin.
+- **Fin de saison** : le coach supprime toutes les réponses d'un clic (confirmation « SUPPRIMER »), après téléchargement automatique d'une archive CSV. Les comptes et le code d'équipe sont conservés.
 - **Code d'équipe** : sans lui, impossible de créer un profil. Le changer bloque les nouvelles inscriptions avec l'ancien code, sans toucher aux comptes existants.
 - **Questionnaire** : 9 curseurs, blessure, gêne. **Une réponse par séance** : renvoyer pour la même date remplace la réponse.
 - **Suivi coach** : filtres période / poste / joueur, moyennes, blessures et gênes, tableau par joueur, intensité par séance, export CSV (Excel FR).
@@ -62,7 +65,8 @@ npm run test:rules
 - **PWA** : « Ajouter à l'écran d'accueil » sur iPhone/Android, une fois le site en ligne.
 
 ### Ce que garantissent les règles Firestore
-- Un athlète ne lit et n'écrit **que ses propres** réponses ; il ne voit pas le profil des autres.
+- Un athlète ne lit et n'écrit **que ses propres** réponses ; il ne voit pas le profil des autres. Un coach ne peut pas répondre.
+- Seul un coach peut retirer un athlète ou supprimer des réponses d'autres membres ; un membre retiré ne peut pas recréer de profil.
 - Personne ne peut se donner le rôle coach ; seul un coach peut le donner à quelqu'un d'autre.
 - Notes entre 1 et 100, date pas dans le futur, une seule réponse par athlète et par date, nom et poste cohérents avec le profil.
 - Inscription refusée sans code d'équipe valide ou sans consentement.
@@ -72,6 +76,7 @@ npm run test:rules
 - `users/{uid}` : `name, poste, role, email, joinCode, consentAt, createdAt`
 - `responses/{uid}_{date}` : `uid, name, poste, date, mus, car, rep, conc, pla, conf, tec, tac, opp, blessure, gene, updatedAt`
 - `teamCodes/{code}` : codes valides
+- `removed/{uid}` : membres retirés (bloque la réinscription)
 - `meta/setup` : marque que le premier coach existe
 
 ---

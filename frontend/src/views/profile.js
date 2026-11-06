@@ -9,8 +9,9 @@ import { PRIVACY_HTML } from "./privacy.js";
  * current = null : création du profil (premier passage), avec code d'équipe et consentement.
  * current = profil : modification + suppression du compte.
  */
-export function renderProfile(el, current, onSaved, onCancel, { firstCoach = false } = {}) {
+export function renderProfile(el, current, onSaved, onCancel, { firstCoach = false, needPoste = false } = {}) {
   const first = !current;
+  const coach = firstCoach || current?.role === "COACH"; // un coach n'a pas de poste
   el.innerHTML = `
     ${first ? `<h1>Ressenti de séance</h1><div class="mu" style="font-size:14px">Dernière étape : présente-toi. Tu ne le feras qu'une fois.</div>` : ""}
     ${first && firstCoach ? `<div class="card ok">Tu es le premier inscrit : ton compte sera <b>coach</b>. Tu pourras ensuite créer le code d'équipe à donner aux athlètes.</div>` : ""}
@@ -18,8 +19,9 @@ export function renderProfile(el, current, onSaved, onCancel, { firstCoach = fal
       <h2>${first ? "Ton profil" : "Modifier mon profil"}</h2>
       <div class="q"><b>Prénom / nom</b></div>
       <input type="text" id="nm" maxlength="60" value="${esc(current?.name)}" placeholder="Ton prénom et ton nom" autocomplete="name">
-      <div class="q"><b>Poste</b></div>
-      <select id="po"><option value="">Choisir…</option>${POSTES.map((p) => `<option ${current?.poste === p ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>
+      ${needPoste ? `<div class="mu" style="margin-top:8px">Tu n'es plus coach : choisis ton poste pour répondre aux questionnaires.</div>` : ""}
+      ${coach ? "" : `<div class="q"><b>Poste</b></div>
+      <select id="po"><option value="">Choisir…</option>${POSTES.map((p) => `<option ${current?.poste === p ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>`}
       ${first && !firstCoach ? `
         <div class="q"><b>Code d'équipe</b>Donné par ton coach.</div>
         <input type="text" id="code" maxlength="20" placeholder="Ex. RUGBY2026" autocapitalize="characters" autocomplete="off">` : ""}
@@ -44,17 +46,18 @@ export function renderProfile(el, current, onSaved, onCancel, { firstCoach = fal
              <button class="btn bad" id="del" type="button" style="margin-top:8px">Supprimer définitivement</button>
              <div id="dmsg" style="margin-top:8px;font-size:14px"></div>`}
       </div>`}
-    <div class="center"><button class="link" id="pcancel">${first ? "Se déconnecter" : "Annuler"}</button></div>`;
+    <div class="center"><button class="link" id="pcancel">${first || needPoste ? "Se déconnecter" : "Annuler"}</button></div>`;
 
-  $("#pcancel").onclick = () => (first ? signOut(auth) : onCancel?.());
+  $("#pcancel").onclick = () => (first || needPoste ? signOut(auth) : onCancel?.());
   if (first) $("#showPrivacy").onclick = () => { $("#privacy").hidden = !$("#privacy").hidden; };
 
   $("#pf").onsubmit = async (ev) => {
     ev.preventDefault();
     const name = $("#nm").value.trim();
-    const poste = $("#po").value;
+    const poste = coach ? null : $("#po").value;
     const msg = $("#pmsg");
-    if (!name || !poste) return setMsg(msg, "Indique ton nom et ton poste.");
+    if (!name) return setMsg(msg, "Indique ton nom.");
+    if (!coach && !poste) return setMsg(msg, "Choisis ton poste.");
     let joinCode;
     if (first && !firstCoach) {
       joinCode = $("#code").value.trim().toUpperCase();

@@ -24,7 +24,7 @@ const answer = (uid, extra = {}) => ({
 
 async function becomeFirstCoach(db, uid) {
   const b = writeBatch(db);
-  b.set(doc(db, "users", uid), profile(uid, { role: "COACH" }));
+  b.set(doc(db, "users", uid), profile(uid, { role: "COACH", poste: "" }));
   b.set(doc(db, "meta", "setup"), { firstCoach: uid, at: serverTimestamp() });
   return b.commit();
 }
@@ -42,6 +42,10 @@ describe("premier coach", () => {
   it("le premier compte devient coach, le second ne peut pas", async () => {
     await assertSucceeds(becomeFirstCoach(ctx("coach"), "coach"));
     await assertFails(becomeFirstCoach(ctx("pirate"), "pirate"));
+  });
+
+  it("un athlète doit avoir un poste, un coach non", async () => {
+    await assertFails(setDoc(doc(ctx("x"), "users", "x"), profile("x", { poste: "" })));
   });
 
   it("impossible de se déclarer coach sans le lot d'initialisation", async () => {
@@ -138,5 +142,73 @@ describe("réponses", () => {
   });
   it("sans profil, impossible d'envoyer une réponse", async () => {
     await assertFails(setDoc(doc(ctx("inconnu"), "responses", `inconnu_${today}`), answer("inconnu")));
+  });
+});
+
+describe("coach = rôle unique, retrait d'un membre, fin de saison", () => {
+  beforeEach(async () => {
+    await becomeFirstCoach(ctx("coach"), "coach");
+    await setDoc(doc(ctx("coach"), "teamCodes", "RUGBY2026"), { createdAt: serverTimestamp(), createdBy: "coach" });
+    await setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" }));
+    await setDoc(doc(ctx("lea"), "users", "lea"), profile("lea", { joinCode: "RUGBY2026" }));
+    await setDoc(doc(ctx("paul"), "responses", `paul_${today}`), answer("paul"));
+    await setDoc(doc(ctx("lea"), "responses", `lea_${today}`), answer("lea"));
+  });
+
+  it("un coach ne peut pas envoyer de réponse", async () => {
+    await assertFails(setDoc(doc(ctx("coach"), "responses", `coach_${today}`), answer("coach", { poste: "" })));
+  });
+
+  it("un coach modifie son nom sans poste", async () => {
+    await assertSucceeds(updateDoc(doc(ctx("coach"), "users", "coach"), { name: "Simon" }));
+  });
+
+  it("un athlète promu coach ne peut plus répondre", async () => {
+    await updateDoc(doc(ctx("coach"), "users", "paul"), { role: "COACH" });
+    await assertFails(setDoc(doc(ctx("paul"), "responses", `paul_${today}`), answer("paul", { mus: 80 })));
+  });
+
+  it("le coach retire un athlète, qui ne peut plus se réinscrire", async () => {
+    const db = ctx("coach");
+    const b = writeBatch(db);
+    b.delete(doc(db, "responses", `paul_${today}`));
+    b.delete(doc(db, "users", "paul"));
+    b.set(doc(db, "removed", "paul"), { name: "paul", email: "paul@club.fr", at: serverTimestamp(), by: "coach" });
+    await assertSucceeds(b.commit());
+    await assertSucceeds(getDoc(doc(ctx("paul"), "removed", "paul")));
+    await assertFails(setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" })));
+    // le coach l'autorise à revenir
+    await assertSucceeds(deleteDoc(doc(db, "removed", "paul")));
+    await assertSucceeds(setDoc(doc(ctx("paul"), "users", "paul"), profile("paul", { joinCode: "RUGBY2026" })));
+  });
+
+  it("un athlète ne peut ni retirer un autre membre, ni supprimer ses réponses", async () => {
+    const db = ctx("paul");
+    await assertFails(deleteDoc(doc(db, "users", "lea")));
+    await assertFails(deleteDoc(doc(db, "responses", `lea_${today}`)));
+    await assertFails(setDoc(doc(db, "removed", "lea"), { name: "lea", email: "lea@club.fr", at: serverTimestamp(), by: "paul" }));
+    await assertFails(getDocs(collection(db, "removed")));
+  });
+
+  it("un coach ne peut pas supprimer un autre coach ni se retirer lui-même", async () => {
+    await updateDoc(doc(ctx("coach"), "users", "paul"), { role: "COACH" });
+    await assertFails(deleteDoc(doc(ctx("coach"), "users", "paul")));
+    await assertFails(setDoc(doc(ctx("coach"), "removed", "coach"), { name: "c", email: "c@club.fr", at: serverTimestamp(), by: "coach" }));
+  });
+
+  it("fin de saison : le coach supprime toutes les réponses d'un coup (lot de 400)", async () => {
+    await env.withSecurityRulesDisabled(async (c) => {
+      const admin = c.firestore();
+      for (let i = 0; i < 4; i++) {
+        const b = writeBatch(admin);
+        for (let j = 0; j < 100; j++) b.set(doc(admin, "responses", `x${i}_${j}`), { uid: "paul", date: today });
+        await b.commit();
+      }
+    });
+    const db = ctx("coach");
+    const all = await getDocs(collection(db, "responses"));
+    const b = writeBatch(db);
+    all.docs.slice(0, 400).forEach((d) => b.delete(d.ref));
+    await assertSucceeds(b.commit());
   });
 });

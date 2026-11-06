@@ -84,3 +84,16 @@ td.l { text-align: left; }
 .btn.bad { background: var(--rd); border-color: var(--rd); color: #fff; }
 .alert { border-color: var(--rd); }
 .code { font: 700 26px/1.2 ui-monospace, "Cascadia Mono", Menlo, monospace; letter-spacing: 3px; color: var(--ac); margin: 4px 0 8px; user-select: all; }
+
+/* iOS Safari : le champ date ignore width:100% (largeur minimale native) et déborde de la carte */
+input[type=date] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 48px;
+  text-align: left;
+}
+input[type=date]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+td.actions .btn + .btn { margin-left: 6px; }
