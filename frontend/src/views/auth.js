@@ -23,6 +23,7 @@ const msgOf = (e) => ERRORS[e.code] || "Erreur : " + (e.code || e.message);
 export function renderAuth(root, mode = "login") {
   const signup = mode === "signup";
   root.innerHTML = `
+    <img class="logo" src="/icons/apple-touch-icon.png" alt="" style="width:52px;height:52px;border-radius:15px;margin-top:24px">
     <h1>Ressenti de séance</h1>
     <div class="mu" style="font-size:14px">${signup ? "Crée ton compte une fois, ensuite tu n'auras plus qu'à répondre." : "Connecte-toi pour répondre après chaque séance."}</div>
     <form class="card" id="f" novalidate>

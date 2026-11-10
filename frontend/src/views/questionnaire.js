@@ -64,7 +64,7 @@ export async function renderQuestionnaire(el, me, flash) {
       <div class="card"><h2>${title}</h2>
         ${qs.map(([k, l, d, lo, hi]) => `
           <div class="q"><b>${l}</b>${d}</div>
-          <div class="rg"><input type="range" min="1" max="100" value="50" data-k="${k}" aria-label="${esc(l)}"></div>
+          <div class="rg"><input type="range" min="1" max="100" value="50" data-k="${k}" aria-label="${esc(l)}" style="--pct:50%"></div>
           <div class="mu ends"><span>${lo}</span><span>${hi}</span></div>`).join("")}
       </div>`).join("")}
     <div class="card"><h2>Santé</h2>
@@ -88,7 +88,8 @@ export async function renderQuestionnaire(el, me, flash) {
   $$('input[type=range]', el).forEach((r) => {
     r.oninput = () => {
       form[r.dataset.k] = +r.value;
-      r.classList.add("set"); // curseur répondu : il passe en vert
+      r.style.setProperty("--pct", `${((r.value - 1) / 99) * 100}%`); // remplissage de la piste
+      r.classList.add("set"); // curseur répondu : il passe en noir
     };
   });
   $$("#yn button", el).forEach((b) => {

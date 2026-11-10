@@ -70,14 +70,19 @@ function renderShell() {
   if (!tabs.some(([k]) => k === currentTab)) currentTab = tabs[0][0];
 
   root.innerHTML = `
-    <div class="top">
-      <h1>Ressenti de séance</h1>
-      <div>
-        <button class="link" id="editProfile">Mon profil</button>
-        <button class="link" id="logout">Déconnexion</button>
+    <header class="top">
+      <div class="brand">
+        <img class="logo" src="/icons/apple-touch-icon.png" alt="">
+        <div style="min-width:0">
+          <div class="brand-name">Ressenti de séance</div>
+          <div class="who">${esc(me.name)}${coach ? `<span class="badge">${me.role}</span>` : ` · ${esc(me.poste)}`}</div>
+        </div>
       </div>
-    </div>
-    <div class="who">${esc(me.name)}${coach ? `<span class="badge">${me.role}</span>` : ` · ${esc(me.poste)}`}</div>
+      <div class="top-actions">
+        <button class="link" id="editProfile">Profil</button>
+        <button class="link" id="logout">Quitter</button>
+      </div>
+    </header>
     ${tabs.length > 1 ? `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === currentTab ? "on" : ""}">${l}</button>`).join("")}</div>` : ""}
     <div id="view"></div>`;
 

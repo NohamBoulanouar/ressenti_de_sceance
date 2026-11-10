@@ -77,8 +77,10 @@ export async function renderSessions(el, me, flash) {
       <div class="q"><b>Type</b></div>
       <select id="pTitle">${TITLES.map((t) => `<option>${t}</option>`).join("")}<option value="__autre">Autre…</option></select>
       <input type="text" id="pOther" maxlength="60" placeholder="Nom de la séance" hidden style="margin-top:8px">
-      <label class="consent"><input type="checkbox" id="pRepeat"><span>Répéter chaque semaine pendant
-        <input type="number" id="pWeeks" min="2" max="40" value="10" class="weeks"> semaines</span></label>
+      <div class="repeat">
+        <label class="consent" style="margin:0"><input type="checkbox" id="pRepeat"><span>Répéter chaque semaine pendant</span></label>
+        <span class="repeat-n"><input type="number" id="pWeeks" min="2" max="40" value="10" class="weeks" inputmode="numeric"> semaines</span>
+      </div>
       <button class="go" type="submit" id="pSave">Planifier</button>
       <div id="pmsg" style="margin-top:8px;font-size:14px"></div>
     </form>
