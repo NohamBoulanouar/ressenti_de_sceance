@@ -29,10 +29,26 @@ h2 { font-size: 16px; margin: 0 0 10px; }
 .link { background: none; border: 0; color: var(--ac); font-size: 14px; padding: 6px 4px; cursor: pointer; }
 
 /* Curseurs */
-.rg { display: flex; align-items: center; gap: 10px; }
-.rg input[type=range] { flex: 1; accent-color: var(--ac); height: 32px; }
-.rg .val { width: 40px; text-align: right; font-weight: 700; color: var(--mu); }
-.rg .val.on { color: var(--ac); }
+/* Curseurs : même rendu sur tous les navigateurs. Gris tant qu'on n'y a pas touché, vert une fois répondu. */
+.rg { display: flex; align-items: center; }
+.rg input[type=range] {
+  flex: 1; height: 36px; margin: 0; background: transparent; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  --thumb: var(--mu); --track: var(--bd);
+}
+.rg input[type=range].set { --thumb: var(--ac); --track: var(--ac2); }
+.rg input[type=range].todo:not(.set) { --thumb: var(--rd); }
+.rg input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 99px; background: var(--track); }
+.rg input[type=range]::-moz-range-track { height: 8px; border-radius: 99px; background: var(--track); }
+.rg input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 28px; height: 28px; margin-top: -10px;
+  border-radius: 50%; background: var(--thumb); border: 3px solid var(--card); box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+.rg input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--thumb);
+  border: 3px solid var(--card); box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+.rg input[type=range]:focus-visible { outline: 2px solid var(--ac); outline-offset: 4px; border-radius: 8px; }
 .ends { display: flex; justify-content: space-between; }
 
 input[type=text], input[type=email], input[type=password], input[type=date], select {

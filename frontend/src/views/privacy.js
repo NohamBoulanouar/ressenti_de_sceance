@@ -7,7 +7,7 @@ const mail = `<a href="mailto:${c.contactCoach}">${c.contactCoach}</a>`;
 export const PRIVACY_HTML = `
   <h2>Confidentialité et données personnelles</h2>
   <p><b>Responsable du traitement :</b> ${c.coach}, ton coach (${mail}).</p>
-  <p><b>Données collectées :</b> email, prénom/nom, poste, et après chaque séance ton ressenti (9 notes de 1 à 100),
+  <p><b>Données collectées :</b> email, prénom/nom, poste, et après chaque séance ton ressenti (8 notes sur une échelle de 1 à 100),
   la présence d'une blessure et une éventuelle gêne ou douleur.</p>
   <p><b>Données de santé :</b> les informations sur les blessures et douleurs sont des données de santé (article 9 du RGPD).
   Elles ne sont collectées qu'avec ton <b>consentement explicite</b>, donné à la création du compte.</p>

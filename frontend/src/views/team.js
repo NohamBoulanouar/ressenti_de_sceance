@@ -97,9 +97,9 @@ function averages(rows, title) {
   let h = `<div class="card"><h2>${title}</h2>`;
   if (!rows.length) h += `<div class="mu">Aucune réponse.</div>`;
   QS.forEach(([t, qs]) => {
-    h += `<div class="mu" style="margin-top:8px"><b>${t}</b></div>` + qs.map((q) => bar(q[1], avg(rows.map((r) => r[q[0]])), q[0] === "opp")).join("");
+    h += `<div class="mu" style="margin-top:8px"><b>${t}</b></div>` + qs.map((q) => bar(q[1], avg(rows.map((r) => r[q[0]])))).join("");
   });
-  return h + `<div class="mu" style="margin-top:8px">Opposition : idéal autour de 50 (repère), rouge si l'écart dépasse 20.</div></div>`;
+  return h + `</div>`;
 }
 
 // ── Vue « par séance » ─────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ function sessionView(session, rows) {
   }
 
   // Détail : une ligne par athlète, valeurs hors norme mises en évidence.
-  const flag = (k, v) => (k === "opp" ? Math.abs(v - 50) > 20 : ["conc", "pla", "conf", "rep", "tec", "tac"].includes(k) ? v < 30 : false);
+  const flag = (k, v) => ["conc", "pla", "conf", "rep", "tec", "tac"].includes(k) && v < 30;
   h += `<div class="card"><h2>Réponses des athlètes</h2>${rows.length ? `<div class="sc2"><table>
     <tr><th>Joueur</th><th>Poste</th>${KEYS.map((k) => `<th>${SHORT[k]}</th>`).join("")}<th>Blessure</th><th>Gêne</th></tr>
     ${[...rows].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((r) => `<tr>
@@ -142,7 +142,7 @@ function sessionView(session, rows) {
       <td class="l">${esc(r.gene || "")}</td>
     </tr>`).join("")}
   </table></div>
-  <div class="mu" style="margin-top:8px">En rouge : concentration, plaisir, confiance, répétition, technique ou tactique sous 30, et opposition à plus de 20 points de 50.</div>`
+  <div class="mu" style="margin-top:8px">En rouge : concentration, plaisir, confiance, répétition, technique ou tactique sous 30.</div>`
     : `<div class="mu">Aucune réponse à cette séance.</div>`}</div>`;
   return h;
 }
@@ -182,10 +182,9 @@ function periodView(rows) {
   return h;
 }
 
-function bar(label, v, opp) {
+function bar(label, v) {
   const w = v == null ? 0 : v;
-  const red = opp && v != null && Math.abs(v - 50) > 20;
-  return `<div class="row"><span class="n">${esc(label)}</span><span class="b"><i style="width:${w}%${red ? ";background:var(--rd)" : ""}"></i>${opp ? '<span class="mid"></span>' : ""}</span><span class="v">${f0(v)}</span></div>`;
+  return `<div class="row"><span class="n">${esc(label)}</span><span class="b"><i style="width:${w}%"></i></span><span class="v">${f0(v)}</span></div>`;
 }
 
 export function downloadCsv(rows, prefix = "ressenti-seance") {

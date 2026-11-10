@@ -19,7 +19,7 @@ const profile = (uid, extra = {}) => ({
 const SID = "s1"; // séance planifiée du jour
 const answer = (uid, extra = {}) => ({
   uid, name: uid, poste: "Centres", sessionId: SID, date: today,
-  mus: 50, car: 50, rep: 50, conc: 50, pla: 50, conf: 50, tec: 50, tac: 50, opp: 50,
+  mus: 50, car: 50, rep: 50, conc: 50, pla: 50, conf: 50, tec: 50, tac: 50,
   blessure: false, gene: "", updatedAt: serverTimestamp(), ...extra,
 });
 
@@ -167,17 +167,22 @@ describe("coach = rôle unique, retrait d'un membre, fin de saison", () => {
     await setDoc(doc(ctx("lea"), "responses", `lea_${SID}`), answer("lea"));
   });
 
-  it("un coach ne peut pas envoyer de réponse", async () => {
-    await assertFails(setDoc(doc(ctx("coach"), "responses", `coach_${SID}`), answer("coach", { poste: "" })));
+  it("un coach peut répondre au questionnaire (sans poste)", async () => {
+    await assertSucceeds(setDoc(doc(ctx("coach"), "responses", `coach_${SID}`), answer("coach", { poste: "" })));
+  });
+
+  it("une ancienne réponse avec opposition reste valide, mais pas une valeur hors limites", async () => {
+    await assertSucceeds(setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul", { opp: 60 })));
+    await assertFails(setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul", { opp: 150 })));
   });
 
   it("un coach modifie son nom sans poste", async () => {
     await assertSucceeds(updateDoc(doc(ctx("coach"), "users", "coach"), { name: "Simon" }));
   });
 
-  it("un athlète promu coach ne peut plus répondre", async () => {
+  it("un athlète promu coach peut encore répondre", async () => {
     await updateDoc(doc(ctx("coach"), "users", "paul"), { role: "COACH" });
-    await assertFails(setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul", { mus: 80 })));
+    await assertSucceeds(setDoc(doc(ctx("paul"), "responses", `paul_${SID}`), answer("paul", { mus: 80 })));
   });
 
   it("le coach retire un athlète, qui ne peut plus se réinscrire", async () => {
@@ -257,8 +262,8 @@ describe("rôle développeur", () => {
     await assertFails(setDoc(doc(db, "removed", "noham"), { name: "n", email: "n@club.fr", at: serverTimestamp(), by: "coach" }));
   });
 
-  it("le dev ne remplit pas de questionnaire mais peut changer son nom", async () => {
-    await assertFails(setDoc(doc(ctx("noham"), "responses", `noham_${SID}`), answer("noham")));
+  it("le dev peut répondre au questionnaire et changer son nom", async () => {
+    await assertSucceeds(setDoc(doc(ctx("noham"), "responses", `noham_${SID}`), answer("noham")));
     await assertSucceeds(updateDoc(doc(ctx("noham"), "users", "noham"), { name: "Noham" }));
   });
 });

@@ -55,7 +55,7 @@ export async function renderAccounts(el, me) {
           <td>${u.uid === me.uid || u.role === "DEV" ? "" : `<button class="btn" data-act="role" data-uid="${esc(u.uid)}" data-role="ATHLETE">Repasser athlète</button>`}</td>
         </tr>`).join("")}
       </table></div>
-      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste et ne remplit pas de questionnaire. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire.${iAmDev ? " Le rôle DEV se gère uniquement depuis la console Firebase." : ""}</div>
+      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste ; il peut remplir le questionnaire (onglet « Répondre »), mais ses réponses ne comptent pas dans le suivi. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire.${iAmDev ? " Le rôle DEV se gère uniquement depuis la console Firebase." : ""}</div>
     </div>
 
     <div class="card">

@@ -63,8 +63,10 @@ window.addEventListener("open-session", (e) => {
 
 function renderShell() {
   const coach = me.role === "COACH" || me.role === "DEV"; // DEV = développeur, mêmes accès qu'un coach
-  // Un coach n'est que coach : pas de questionnaire.
-  const tabs = coach ? [["team", "Suivi"], ["sessions", "Séances"], ["accounts", "Équipe"]] : [["form", "Questionnaire"]];
+  // Coach et dev ont aussi accès au questionnaire (leurs réponses ne comptent pas dans le suivi de l'équipe).
+  const tabs = coach
+    ? [["team", "Suivi"], ["sessions", "Séances"], ["form", "Répondre"], ["accounts", "Équipe"]]
+    : [["form", "Questionnaire"]];
   if (!tabs.some(([k]) => k === currentTab)) currentTab = tabs[0][0];
 
   root.innerHTML = `

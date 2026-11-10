@@ -31,7 +31,7 @@ export async function renderQuestionnaire(el, me, flash) {
   const history = `<div class="card" id="last"><h2>Mes dernières réponses</h2>${mine.length
     ? mine.slice(0, 5).map((x) => {
         const s = byId.get(x.sessionId);
-        return `<div class="row"><span class="n">${esc(s ? sessionLabel(s) : x.date)}</span><span>muscu ${x.mus} · cardio ${x.car} · plaisir ${x.pla}${x.blessure ? ' · <span class="warn">blessure</span>' : ""}</span></div>`;
+        return `<div class="row"><span style="flex:1">${esc(s ? sessionLabel(s) : x.date)}</span><span class="${x.blessure ? "warn" : "ok"}">${x.blessure ? "Envoyé · blessure signalée" : "Envoyé ✔"}</span></div>`;
       }).join("")
     : `<div class="mu">Aucune réponse pour l'instant.</div>`}</div>`;
 
@@ -64,7 +64,7 @@ export async function renderQuestionnaire(el, me, flash) {
       <div class="card"><h2>${title}</h2>
         ${qs.map(([k, l, d, lo, hi]) => `
           <div class="q"><b>${l}</b>${d}</div>
-          <div class="rg"><input type="range" min="1" max="100" value="50" data-k="${k}" aria-label="${esc(l)}"><span class="val" id="v_${k}">—</span></div>
+          <div class="rg"><input type="range" min="1" max="100" value="50" data-k="${k}" aria-label="${esc(l)}"></div>
           <div class="mu ends"><span>${lo}</span><span>${hi}</span></div>`).join("")}
       </div>`).join("")}
     <div class="card"><h2>Santé</h2>
@@ -88,9 +88,7 @@ export async function renderQuestionnaire(el, me, flash) {
   $$('input[type=range]', el).forEach((r) => {
     r.oninput = () => {
       form[r.dataset.k] = +r.value;
-      const v = $("#v_" + r.dataset.k);
-      v.textContent = r.value;
-      v.classList.add("on");
+      r.classList.add("set"); // curseur répondu : il passe en vert
     };
   });
   $$("#yn button", el).forEach((b) => {
@@ -104,7 +102,8 @@ export async function renderQuestionnaire(el, me, flash) {
     const msg = $("#msg");
     const missing = KEYS.filter((k) => !form[k]);
     if (missing.length || blessure === null) {
-      return setMsg(msg, "Bouge chaque curseur (même pour le laisser à 50) et réponds à la question blessure.");
+      $$('input[type=range]:not(.set)', el).forEach((r) => r.classList.add("todo"));
+      return setMsg(msg, "Bouge chaque curseur (ceux encore gris, même pour les laisser au milieu) et réponds à la question blessure.");
     }
     const s = byId.get($("#sess").value);
     const btn = $("#send");

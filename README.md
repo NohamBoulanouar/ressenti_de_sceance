@@ -56,12 +56,12 @@ npm run test:rules
 - **Inscription** : email + mot de passe, puis nom, poste, **code d'équipe** et **consentement RGPD** (une seule fois).
 - **Rôles** : le premier inscrit est coach. Un coach peut donner ou retirer le rôle coach aux autres, mais pas se le retirer à lui-même : il reste donc toujours au moins un coach.
 - **Rôle DEV (développeur)** : mêmes accès qu'un coach (suivi, gestion de l'équipe), mais personne ne peut le lui retirer, le supprimer ou s'attribuer ce rôle depuis le site. Il s'attribue **uniquement depuis la console Firebase** (voir plus bas).
-- **Coach = rôle unique** : un coach n'a pas de poste, ne remplit pas de questionnaire et n'apparaît pas dans les statistiques. Un coach repassé athlète doit choisir son poste à sa prochaine connexion.
+- **Coach = rôle unique** : un coach n'a pas de poste et n'apparaît pas dans les statistiques. Coach et dev peuvent remplir le questionnaire (onglet « Répondre ») ; leurs réponses ne comptent pas dans le suivi de l'équipe. Un coach repassé athlète doit choisir son poste à sa prochaine connexion.
 - **Retirer un membre** : le coach supprime le profil et toutes les réponses d'un athlète ; celui-ci ne peut plus se réinscrire (même avec le code) tant que le coach ne l'a pas « autorisé à revenir ». Son compte de connexion reste dans Firebase Authentication : le supprimer à la main dans la console si besoin.
 - **Fin de saison** : le coach supprime toutes les réponses et toutes les séances d'un clic (confirmation « SUPPRIMER »), après téléchargement automatique d'une archive CSV. Les comptes et le code d'équipe sont conservés.
 - **Code d'équipe** : sans lui, impossible de créer un profil. Le changer bloque les nouvelles inscriptions avec l'ancien code, sans toucher aux comptes existants.
 - **Séances planifiées** (onglet « Séances » du coach) : date, heure facultative, type (entraînement, match…), répétition hebdomadaire possible. Pour chaque séance passée : nombre de réponses et liste de ceux qui n'ont pas répondu. Supprimer une séance supprime ses réponses.
-- **Questionnaire** : l'athlète choisit une séance planifiée des 3 dernières semaines (pas de séance future), puis 9 curseurs, blessure, gêne. **Une réponse par séance** : renvoyer pour la même séance remplace la réponse.
+- **Questionnaire** : l'athlète choisit une séance planifiée des 3 dernières semaines (pas de séance future), puis 8 curseurs (sans valeur chiffrée affichée : un curseur reste gris tant qu'on n'y a pas touché), blessure, gêne. **Une réponse par séance** : renvoyer pour la même séance remplace la réponse.
 - **Suivi coach**, deux vues :
   - *Par période* : filtres période / poste / joueur, moyennes, blessures et gênes, tableau par joueur, intensité par séance (clic = détail de la séance) ;
   - *Par séance* : taux de réponse et non-répondants, moyennes de la séance, blessures, réponse de chaque athlète (valeurs préoccupantes en rouge).
@@ -70,7 +70,7 @@ npm run test:rules
 - **PWA** : « Ajouter à l'écran d'accueil » sur iPhone/Android, une fois le site en ligne.
 
 ### Ce que garantissent les règles Firestore
-- Un athlète ne lit et n'écrit **que ses propres** réponses ; il ne voit pas le profil des autres. Un coach ne peut pas répondre.
+- Un athlète ne lit et n'écrit **que ses propres** réponses ; il ne voit pas le profil des autres. 
 - Seul un coach peut retirer un athlète ou supprimer des réponses d'autres membres ; un membre retiré ne peut pas recréer de profil.
 - Personne ne peut se donner le rôle coach ; seul un coach peut le donner à quelqu'un d'autre.
 - Notes entre 1 et 100, date pas dans le futur, une seule réponse par athlète et par date, nom et poste cohérents avec le profil.

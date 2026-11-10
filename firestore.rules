@@ -93,6 +93,7 @@ service cloud.firestore {
       }
 
       function validResponse(r) {
+        // (le champ 'opp' n'est plus demandé : il reste accepté pour les anciennes réponses)
         return r.keys().hasOnly(['uid', 'name', 'poste', 'sessionId', 'date', 'mus', 'car', 'rep', 'conc', 'pla', 'conf', 'tec', 'tac', 'opp', 'blessure', 'gene', 'updatedAt'])
           && r.uid == request.auth.uid
           && r.sessionId is string
@@ -100,11 +101,12 @@ service cloud.firestore {
           && exists(sessionPath(r.sessionId))    // la séance doit avoir été planifiée par le coach
           && get(sessionPath(r.sessionId)).data.date == r.date
           && isDate(r.date) && notFuture(r.date)
-          && me().role == 'ATHLETE'               // un coach ne remplit pas de questionnaire
+          // athlètes, coachs et dev peuvent répondre ; seules les réponses des athlètes comptent dans le suivi
           && r.name == me().name && r.poste == me().poste
           && score(r.mus) && score(r.car) && score(r.rep)
           && score(r.conc) && score(r.pla) && score(r.conf)
-          && score(r.tec) && score(r.tac) && score(r.opp)
+          && score(r.tec) && score(r.tac)
+          && (!('opp' in r) || score(r.opp))
           && r.blessure is bool
           && r.gene is string && r.gene.size() <= 200
           && r.updatedAt == request.time;
