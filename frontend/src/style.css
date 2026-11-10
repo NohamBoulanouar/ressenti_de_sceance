@@ -149,33 +149,32 @@ input[type=number].weeks { width: 72px; flex: none; padding: 8px 10px; text-alig
 .filters > * { flex: 1; min-width: 140px; }
 .filters .wide-select { flex: 2; }
 
-/* ── Curseurs : la piste se remplit, gris tant qu'on n'y a pas touché ───── */
-.rg { display: flex; align-items: center; padding: 4px 0; }
-.rg input[type=range] {
-  --pct: 50%; --fill: #cfccc4; --thumb-bd: #cfccc4;
-  flex: 1; height: 32px; margin: 0; background: transparent; cursor: pointer;
-  -webkit-appearance: none; appearance: none;
+/* ── Échelle « ligne + ballon » (questionnaire) ───────────────────────────
+   Une simple ligne ; le ballon n'apparaît qu'au premier appui, puis se déplace. */
+.bl {
+  --pct: 50%;
+  position: relative; height: 48px; margin: 2px 0 0; cursor: pointer;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  border-radius: 8px; outline: none;
 }
-.rg input[type=range].set { --fill: var(--tx); --thumb-bd: var(--tx); }
-.rg input[type=range].todo:not(.set) { --thumb-bd: var(--rd); --fill: #f0b8b3; }
-.rg input[type=range]::-webkit-slider-runnable-track {
-  height: 6px; border-radius: 99px;
-  background: linear-gradient(to right, var(--fill) 0 var(--pct), var(--line) var(--pct) 100%);
+.bl::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px;
+  background: var(--line); border-radius: 2px; transition: background .2s;
 }
-.rg input[type=range]::-moz-range-track { height: 6px; border-radius: 99px; background: var(--line); }
-.rg input[type=range]::-moz-range-progress { height: 6px; border-radius: 99px; background: var(--fill); }
-.rg input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 26px; height: 26px; margin-top: -10px; border-radius: 50%;
-  background: var(--card); border: 2px solid var(--thumb-bd); box-shadow: 0 2px 6px rgba(28, 27, 25, .15);
-  transition: transform .12s;
+.bl:hover::before { background: #d6d3cb; }
+.bl.todo::before { background: var(--rd); opacity: .55; }
+.bl:focus-visible { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px rgba(28, 27, 25, .25); }
+.bl-ball {
+  position: absolute; top: 50%; left: var(--pct); width: 40px; height: 26px;
+  transform: translate(-50%, -50%) scale(.4); opacity: 0;
+  background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2044%2028%22%3E%3Cg%20transform%3D%22rotate%28-12%2022%2014%29%22%3E%3Cellipse%20cx%3D%2222%22%20cy%3D%2214%22%20rx%3D%2219%22%20ry%3D%2211.5%22%20fill%3D%22%231f7a4d%22/%3E%3Cpath%20d%3D%22M8%209.5c4-3%209.5-4.6%2014-4.6s10%201.6%2014%204.6M8%2018.5c4%203%209.5%204.6%2014%204.6s10-1.6%2014-4.6%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-opacity%3D%22.35%22%20stroke-width%3D%221.2%22/%3E%3Cpath%20d%3D%22M14%2014h16%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22/%3E%3Cpath%20d%3D%22M17%2011.5v5M20%2011.5v5M23%2011.5v5M26%2011.5v5%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 2px 3px rgba(28, 27, 25, .25));
+  transition: transform .18s cubic-bezier(.3, 1.6, .5, 1), opacity .15s, left .12s ease-out;
+  pointer-events: none;
 }
-.rg input[type=range]:active::-webkit-slider-thumb { transform: scale(1.12); }
-.rg input[type=range]::-moz-range-thumb {
-  width: 22px; height: 22px; border-radius: 50%; background: var(--card);
-  border: 2px solid var(--thumb-bd); box-shadow: 0 2px 6px rgba(28, 27, 25, .15);
-}
-.rg input[type=range]:focus-visible { outline: 2px solid var(--tx); outline-offset: 2px; border-radius: 99px; }
-.ends { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--mu); margin-top: 2px; }
+.bl.set .bl-ball { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.bl.dragging .bl-ball { transition: transform .18s, opacity .15s; transform: translate(-50%, -50%) scale(1.12) rotate(-8deg); }
+.ends { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--mu); margin-top: -4px; }
 
 /* ── Barres de moyennes ─────────────────────────────────────────────────── */
 .row { display: flex; align-items: center; gap: 12px; margin: 9px 0; font-size: 14px; }

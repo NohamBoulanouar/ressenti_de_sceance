@@ -61,7 +61,7 @@ npm run test:rules
 - **Fin de saison** : le coach supprime toutes les réponses et toutes les séances d'un clic (confirmation « SUPPRIMER »), après téléchargement automatique d'une archive CSV. Les comptes et le code d'équipe sont conservés.
 - **Code d'équipe** : sans lui, impossible de créer un profil. Le changer bloque les nouvelles inscriptions avec l'ancien code, sans toucher aux comptes existants.
 - **Séances planifiées** (onglet « Séances » du coach) : date, heure facultative, type (entraînement, match…), répétition hebdomadaire possible. Pour chaque séance passée : nombre de réponses et liste de ceux qui n'ont pas répondu. Supprimer une séance supprime ses réponses.
-- **Questionnaire** : l'athlète choisit une séance planifiée des 3 dernières semaines (pas de séance future), puis 8 curseurs (sans valeur chiffrée affichée : un curseur reste gris tant qu'on n'y a pas touché), blessure, gêne. **Une réponse par séance** : renvoyer pour la même séance remplace la réponse.
+- **Questionnaire** : l'athlète choisit une séance planifiée des 3 dernières semaines (pas de séance future), puis 8 lignes : un appui sur la ligne pose un ballon de rugby, qu'on peut ensuite faire glisser (aucune valeur affichée), blessure, gêne. **Une réponse par séance** : renvoyer pour la même séance remplace la réponse.
 - **Suivi coach**, deux vues :
   - *Par période* : filtres période / poste / joueur, moyennes, blessures et gênes, tableau par joueur, intensité par séance (clic = détail de la séance) ;
   - *Par séance* : taux de réponse et non-répondants, moyennes de la séance, blessures, réponse de chaque athlète (valeurs préoccupantes en rouge).

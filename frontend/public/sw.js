@@ -1,7 +1,7 @@
 // Service worker minimal : rend le site installable et l'ouvre même avec un réseau faible.
 // Stratégie "réseau d'abord" pour les pages (toujours la dernière version),
 // cache pour les fichiers statiques. Les données Firebase ne passent jamais par ce cache.
-const CACHE = "ressenti-v3"; // changer la version force le rafraîchissement du cache
+const CACHE = "ressenti-v4"; // changer la version force le rafraîchissement du cache
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/manifest.webmanifest", "/icons/icon-192.png"])));

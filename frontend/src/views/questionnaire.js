@@ -1,6 +1,7 @@
 import { api, errorMessage } from "../api.js";
 import { KEYS, QS } from "../questions.js";
 import { $, $$, claimView, daysAgo, esc, localDate, sessionLabel, setMsg } from "../util.js";
+import { ballLineHtml, initBallLines } from "../ballLine.js";
 
 const WINDOW_DAYS = 21; // séances proposées : les 3 dernières semaines
 
@@ -64,7 +65,7 @@ export async function renderQuestionnaire(el, me, flash) {
       <div class="card"><h2>${title}</h2>
         ${qs.map(([k, l, d, lo, hi]) => `
           <div class="q"><b>${l}</b>${d}</div>
-          <div class="rg"><input type="range" min="1" max="100" value="50" data-k="${k}" aria-label="${esc(l)}" style="--pct:50%"></div>
+          ${ballLineHtml(k, esc(l))}
           <div class="mu ends"><span>${lo}</span><span>${hi}</span></div>`).join("")}
       </div>`).join("")}
     <div class="card"><h2>Santé</h2>
@@ -85,13 +86,7 @@ export async function renderQuestionnaire(el, me, flash) {
   $("#sess").onchange = hint;
   hint();
 
-  $$('input[type=range]', el).forEach((r) => {
-    r.oninput = () => {
-      form[r.dataset.k] = +r.value;
-      r.style.setProperty("--pct", `${((r.value - 1) / 99) * 100}%`); // remplissage de la piste
-      r.classList.add("set"); // curseur répondu : il passe en noir
-    };
-  });
+  initBallLines(el, (k, v) => { form[k] = v; });
   $$("#yn button", el).forEach((b) => {
     b.onclick = () => {
       blessure = b.dataset.b === "1";
@@ -103,8 +98,8 @@ export async function renderQuestionnaire(el, me, flash) {
     const msg = $("#msg");
     const missing = KEYS.filter((k) => !form[k]);
     if (missing.length || blessure === null) {
-      $$('input[type=range]:not(.set)', el).forEach((r) => r.classList.add("todo"));
-      return setMsg(msg, "Bouge chaque curseur (ceux encore gris, même pour les laisser au milieu) et réponds à la question blessure.");
+      $$(".bl:not(.set)", el).forEach((r) => r.classList.add("todo"));
+      return setMsg(msg, "Place le ballon sur chaque ligne (appuie à l'endroit qui correspond à ton ressenti) et réponds à la question blessure.");
     }
     const s = byId.get($("#sess").value);
     const btn = $("#send");
