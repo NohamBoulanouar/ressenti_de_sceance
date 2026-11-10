@@ -65,7 +65,7 @@ function renderShell() {
   const coach = me.role === "COACH" || me.role === "DEV"; // DEV = développeur, mêmes accès qu'un coach
   // Coach et dev ont aussi accès au questionnaire (leurs réponses ne comptent pas dans le suivi de l'équipe).
   const tabs = coach
-    ? [["team", "Suivi"], ["sessions", "Séances"], ["form", "Répondre"], ["accounts", "Équipe"]]
+    ? [["team", "Suivi"], ["sessions", "Séances"], ["form", "Questionnaire"], ["accounts", "Équipe"]]
     : [["form", "Questionnaire"]];
   if (!tabs.some(([k]) => k === currentTab)) currentTab = tabs[0][0];
 
