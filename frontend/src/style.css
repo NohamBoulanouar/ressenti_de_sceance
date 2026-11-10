@@ -122,14 +122,16 @@ input[type=number].weeks { width: 72px; flex: none; padding: 8px 10px; text-alig
 .danger-link { color: var(--rd); padding-left: 0; }
 .danger-link:hover { background: none; text-decoration: underline; color: var(--rd); }
 
-/* Oui / Non */
-.yn { display: flex; gap: 8px; padding: 4px; background: var(--field); border-radius: var(--r-md); }
+/* Oui / Non : deux boutons bien distincts */
+.yn { display: flex; gap: 10px; }
 .yn button {
-  flex: 1; padding: 11px; border: 0; border-radius: var(--r-sm); cursor: pointer;
-  background: transparent; color: var(--soft); font: inherit; font-size: 15px; font-weight: 550;
+  flex: 1; padding: 13px; cursor: pointer; border-radius: var(--r-md);
+  background: var(--card); border: 1.5px solid var(--bd); color: var(--tx);
+  font: inherit; font-size: 15px; font-weight: 600; transition: border-color .15s, background .15s, color .15s;
 }
-.yn button.on { background: var(--card); color: var(--tx); box-shadow: 0 1px 3px rgba(28, 27, 25, .12); }
-.yn button.on.bad { background: var(--rd); color: #fff; }
+.yn button:hover { border-color: #cfccc4; }
+.yn button.on { background: var(--tx); border-color: var(--tx); color: var(--on-ac); }
+.yn button.on.bad { background: var(--rd); border-color: var(--rd); color: #fff; }
 
 /* ── Onglets et bascule ─────────────────────────────────────────────────── */
 .tabs, .seg {
