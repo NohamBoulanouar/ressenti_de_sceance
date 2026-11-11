@@ -9,15 +9,13 @@ function addWeeks(iso, n) {
   return localDate(new Date(y, m - 1, d + 7 * n));
 }
 
-const created = (u) => (u.createdAt?.toDate ? localDate(u.createdAt.toDate()) : "0000-00-00");
-
 /** Onglet coach : planifier les séances et voir qui n'a pas répondu. */
-export async function renderSessions(el, me, flash) {
+export async function renderSessions(el, me, team, flash) {
   const still = claimView(el);
   el.innerHTML = `<div class="card"><div class="mu">Chargement des séances…</div></div>`;
-  let sessions, responses, users;
+  let sessions, responses, users, members;
   try {
-    [sessions, responses, users] = await Promise.all([api.sessions(), api.teamResponses(null), api.users()]);
+    [sessions, responses, users, members] = await Promise.all([api.sessions(team.id), api.teamResponses(team.id), api.users(), api.members(team.id)]);
   } catch (e) {
     if (still()) el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
@@ -25,7 +23,9 @@ export async function renderSessions(el, me, flash) {
   if (!still()) return;
 
   const today = localDate();
-  const athletes = users.filter((u) => u.role === "ATHLETE");
+  // Athlètes de l'équipe, avec la date à laquelle ils l'ont rejointe.
+  const since = new Map(members.map((m) => [m.uid, m.since]));
+  const athletes = users.filter((u) => u.role === "ATHLETE" && since.has(u.uid)).map((u) => ({ ...u, since: since.get(u.uid) }));
   const bySession = new Map();
   responses.forEach((r) => {
     if (!r.sessionId) return;
@@ -39,7 +39,7 @@ export async function renderSessions(el, me, flash) {
   const status = (s) => {
     const done = bySession.get(s.id) || new Set();
     const answered = athletes.filter((u) => done.has(u.uid)).length;
-    const missing = athletes.filter((u) => !done.has(u.uid) && created(u) <= s.date);
+    const missing = athletes.filter((u) => !done.has(u.uid) && u.since <= s.date);
     return { expected: answered + missing.length, answered, missing };
   };
 
@@ -53,7 +53,7 @@ export async function renderSessions(el, me, flash) {
       </div>
       <div class="row" style="margin:6px 0"><span class="b"><i style="width:${pct}%"></i></span></div>
       ${!st.expected
-        ? `<div class="mu">Aucun athlète n'était inscrit à cette date.</div>`
+        ? `<div class="mu">Aucun athlète n'était dans l'équipe à cette date.</div>`
         : st.missing.length
         ? `<details><summary>${st.missing.length} n'${st.missing.length > 1 ? "ont" : "a"} pas répondu</summary>
             <div class="missing">${st.missing.map((u) => `<span class="chip">${esc(u.name)} <span class="mu">${esc(u.poste)}</span></span>`).join("")}</div>
@@ -114,8 +114,8 @@ export async function renderSessions(el, me, flash) {
     const btn = $("#pSave");
     btn.disabled = true;
     try {
-      await api.createSessions(list);
-      renderSessions(el, me, weeks > 1 ? `${weeks} séances « ${title} » planifiées (chaque ${frDay(date).split(" ")[0]})` : `Séance planifiée : ${sessionLabel(list[0])}`);
+      await api.createSessions(team.id, list);
+      renderSessions(el, me, team, weeks > 1 ? `${weeks} séances « ${title} » planifiées (chaque ${frDay(date).split(" ")[0]})` : `Séance planifiée : ${sessionLabel(list[0])}`);
     } catch (e) {
       setMsg(msg, errorMessage(e));
       btn.disabled = false;
@@ -136,7 +136,7 @@ export async function renderSessions(el, me, flash) {
       b.disabled = true;
       try {
         await api.deleteSession(s.id);
-        renderSessions(el, me, `Séance supprimée : ${sessionLabel(s)}`);
+        renderSessions(el, me, team, `Séance supprimée : ${sessionLabel(s)}`);
       } catch (e) {
         alert(errorMessage(e));
         b.disabled = false;

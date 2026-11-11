@@ -13,7 +13,7 @@ export const QS = [
   ["Rugby", [
     ["tec", "Maîtrise technique", "Comment as-tu ressenti ta maîtrise technique (passes, plaquages, rucks…) ?", "Très mauvaise", "Excellente"],
     ["tac", "Maîtrise tactique", "Comment as-tu ressenti ta lecture du jeu et ta compréhension des systèmes ?", "Perdu", "Très à l'aise"],
-    ["opp", "Opposition", "Comment as-tu ressenti la difficulté de l'opposition ?", "Beaucoup trop faible", "Beaucoup trop forte"],
+    ["opp", "Opposition", "Comment as-tu ressenti la difficulté de l'opposition ?", "trop faible", "trop forte"],
   ]],
 ];
 

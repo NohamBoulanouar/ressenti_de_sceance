@@ -2,39 +2,46 @@ import { api, errorMessage } from "../api.js";
 import { $, claimView, esc, frDate, localDate, sessionLabel, setMsg } from "../util.js";
 import { downloadCsv } from "./team.js";
 
-function randomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans 0/O/1/I pour éviter les confusions
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
-  return [...bytes].map((b) => chars[b % chars.length]).join("");
-}
+const slug = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "equipe";
 
 const dateOf = (ts) => (ts?.toDate ? frDate(localDate(ts.toDate())) : "");
 
-export async function renderAccounts(el, me) {
+/** Onglet « Équipe » : nom et code de l'équipe choisie, staff, athlètes, retraits, fin de saison. */
+export async function renderAccounts(el, me, team, on = {}) {
   const still = claimView(el);
+  const again = () => renderAccounts(el, me, team, on);
   el.innerHTML = `<div class="card"><div class="mu">Chargement…</div></div>`;
-  let users, codes, removed;
+  let users, code, removed, members;
   try {
-    [users, codes, removed] = await Promise.all([api.users(), api.teamCodes(), api.removedMembers()]);
+    [users, code, removed, members] = await Promise.all([api.users(), api.teamCode(team.id), api.removedMembers(team.id), api.members(team.id)]);
   } catch (e) {
     if (still()) el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
   }
   if (!still()) return;
-  const code = codes[0];
   // Affichage : le compte DEV n'apparaît que pour le développeur lui-même (les coachs ne le voient pas).
   const iAmDev = me.role === "DEV";
   const coaches = users.filter((u) => u.role === "COACH" || (u.role === "DEV" && iAmDev));
   const roleLabel = (u) => (u.role === "DEV" && iAmDev ? "DEV" : "COACH");
-  const athletes = users.filter((u) => u.role === "ATHLETE");
+  const inTeam = new Set(members.map((m) => m.uid));
+  const athletes = users.filter((u) => u.role === "ATHLETE" && inTeam.has(u.uid));
 
   el.innerHTML = `
+    <form class="card" id="nameForm" novalidate>
+      <h2>Nom de l'équipe</h2>
+      <div class="filters">
+        <input type="text" id="teamName" maxlength="60" value="${esc(team.name)}">
+        <button class="btn pri" type="submit" style="flex:0">Renommer</button>
+      </div>
+      <div id="nmsg" style="margin-top:8px;font-size:14px"></div>
+    </form>
+
     <div class="card ${code ? "" : "alert"}">
       <h2>Code d'équipe</h2>
       ${code
         ? `<div class="code">${esc(code)}</div>
-           <div class="mu">Donne ce code à tes athlètes : il est demandé à leur inscription. En le changeant, l'ancien code ne permet plus de s'inscrire (les comptes existants ne sont pas touchés).</div>`
-        : `<div class="warn">Aucun code d'équipe : personne ne peut encore s'inscrire. Crée-en un.</div>`}
+           <div class="mu">Donne ce code aux athlètes de « ${esc(team.name)} » : il est demandé à l'inscription, ou sur la page d'accueil pour rejoindre l'équipe. En le changeant, l'ancien code ne fonctionne plus (les membres actuels ne sont pas touchés).</div>`
+        : `<div class="warn">Aucun code : personne ne peut rejoindre cette équipe. Crée-en un.</div>`}
       <div class="filters" style="margin-top:10px">
         <input type="text" id="newCode" maxlength="20" placeholder="Nouveau code (6 à 20 lettres/chiffres)" autocapitalize="characters" autocomplete="off">
         <button class="btn" id="gen" type="button" style="flex:0">Générer</button>
@@ -55,7 +62,7 @@ export async function renderAccounts(el, me) {
           <td>${u.uid === me.uid || u.role === "DEV" ? "" : `<button class="btn" data-act="role" data-uid="${esc(u.uid)}" data-role="ATHLETE">Repasser athlète</button>`}</td>
         </tr>`).join("")}
       </table></div>
-      <div class="mu" style="margin-top:8px">Un coach n'a pas de poste ; il peut remplir le questionnaire (onglet « Questionnaire »), mais ses réponses ne comptent pas dans le suivi. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire.${iAmDev ? " Le rôle DEV se gère uniquement depuis la console Firebase." : ""}</div>
+      <div class="mu" style="margin-top:8px">Le staff gère toutes les équipes. Un coach n'a pas de poste ; il peut remplir le questionnaire (onglet « Questionnaire »), mais ses réponses ne comptent pas dans le suivi. Il ne peut pas se retirer lui-même le rôle : un autre coach doit le faire.${iAmDev ? " Le rôle DEV se gère uniquement depuis la console Firebase." : ""}</div>
     </div>
 
     <div class="card">
@@ -72,14 +79,14 @@ export async function renderAccounts(el, me) {
             <button class="btn bad" data-act="remove" data-uid="${esc(u.uid)}">Retirer</button>
           </td>
         </tr>`).join("")}
-      </table></div>` : `<div class="mu">Aucun athlète inscrit pour l'instant.</div>`}
+      </table></div>` : `<div class="mu">Aucun athlète dans cette équipe pour l'instant.</div>`}
       <div id="amsg" style="margin-top:8px;font-size:14px"></div>
     </div>
 
     ${removed.length ? `
     <div class="card">
       <h2>Membres retirés (${removed.length})</h2>
-      <div class="mu" style="margin-bottom:8px">Ils ne peuvent plus se réinscrire, même avec le code. « Autoriser à revenir » leur permet de recréer un profil.</div>
+      <div class="mu" style="margin-bottom:8px">Ils ne peuvent plus rejoindre cette équipe, même avec le code. « Autoriser à revenir » le leur permet de nouveau.</div>
       <div class="sc2"><table>
         <tr><th>Nom</th><th>Email</th><th>Retiré le</th><th></th></tr>
         ${removed.map((u) => `<tr>
@@ -91,22 +98,45 @@ export async function renderAccounts(el, me) {
 
     <div class="card danger">
       <h2>Fin de saison</h2>
-      <div class="mu" style="margin-bottom:8px">Supprime <b>toutes les réponses et toutes les séances</b> (les comptes et le code d'équipe sont conservés).
+      <div class="mu" style="margin-bottom:8px">Supprime <b>toutes les réponses et toutes les séances de « ${esc(team.name)} »</b> (les membres et le code sont conservés).
       Un fichier CSV de toutes les réponses est téléchargé automatiquement juste avant, pour archive.</div>
       <button class="btn bad" id="purge" type="button">Supprimer les données de la saison</button>
       <div id="pmsg2" style="margin-top:8px;font-size:14px"></div>
+    </div>
+
+    <div class="card danger">
+      <h2>Supprimer l'équipe</h2>
+      <div class="mu" style="margin-bottom:8px">Supprime l'équipe, ses séances, ses réponses et son code. Les comptes des athlètes sont conservés (ils peuvent rester dans leurs autres équipes).
+      Un fichier CSV des réponses est téléchargé juste avant, pour archive.</div>
+      <button class="btn bad" id="delTeam" type="button">Supprimer « ${esc(team.name)} »</button>
+      <div id="tmsg" style="margin-top:8px;font-size:14px"></div>
     </div>`;
 
+  // Nom de l'équipe
+  $("#nameForm").onsubmit = async (ev) => {
+    ev.preventDefault();
+    const name = $("#teamName").value.trim();
+    const msg = $("#nmsg");
+    if (!name) return setMsg(msg, "Le nom ne peut pas être vide.");
+    if (name === team.name) return;
+    try {
+      await api.renameTeam(team.id, name);
+      on.renamed ? on.renamed(name) : again();
+    } catch (e) {
+      setMsg(msg, errorMessage(e));
+    }
+  };
+
   // Code d'équipe
-  $("#gen").onclick = () => { $("#newCode").value = randomCode(); };
+  $("#gen").onclick = () => { $("#newCode").value = api.randomCode(); };
   $("#saveCode").onclick = async () => {
     const value = $("#newCode").value.trim().toUpperCase();
     const msg = $("#cmsg");
     if (!/^[A-Z0-9]{6,20}$/.test(value)) return setMsg(msg, "Le code doit faire 6 à 20 caractères, lettres sans accent et chiffres uniquement.");
     if (code && !confirm(`Remplacer le code ${code} par ${value} ?`)) return;
     try {
-      await api.setTeamCode(value);
-      renderAccounts(el, me);
+      await api.setTeamCode(team.id, value);
+      again();
     } catch (e) {
       setMsg(msg, errorMessage(e));
     }
@@ -120,21 +150,21 @@ export async function renderAccounts(el, me) {
       const act = b.dataset.act;
       let question;
       if (act === "role" && b.dataset.role === "COACH") {
-        question = `Passer ${target.name} coach ?\n\nIl verra les réponses de toute l'équipe et ne remplira plus de questionnaire. Ses anciennes réponses n'apparaîtront plus dans le suivi.`;
+        question = `Passer ${target.name} coach ?\n\nIl gérera toutes les équipes et verra toutes les réponses. Ses anciennes réponses n'apparaîtront plus dans le suivi.`;
       } else if (act === "role") {
-        question = `Repasser ${target.name} athlète ?\n\nIl perdra l'accès au suivi de l'équipe et devra choisir son poste.`;
+        question = `Repasser ${target.name} athlète ?\n\nIl perdra l'accès au suivi et à la gestion des équipes, et devra choisir son poste (puis rejoindre une équipe avec son code).`;
       } else if (act === "remove") {
-        question = `Retirer ${target.name} de l'équipe ?\n\nSon profil et TOUTES ses réponses seront supprimés définitivement, et il ne pourra plus se réinscrire (sauf si tu l'y autorises).`;
+        question = `Retirer ${target.name} de « ${team.name} » ?\n\nSes réponses dans cette équipe seront supprimées définitivement et il ne pourra plus la rejoindre (sauf si tu l'y autorises). S'il n'est dans aucune autre équipe, son profil est aussi supprimé.`;
       } else {
-        question = `Autoriser ${target.name} à revenir ? Il pourra recréer un profil avec le code d'équipe.`;
+        question = `Autoriser ${target.name} à revenir dans « ${team.name} » ? Il pourra la rejoindre avec le code d'équipe.`;
       }
       if (!confirm(question)) return;
       b.disabled = true;
       try {
         if (act === "role") await api.changeRole(target.uid, b.dataset.role);
-        if (act === "remove") await api.removeMember(target);
-        if (act === "back") await api.allowBack(target.uid);
-        renderAccounts(el, me);
+        if (act === "remove") await api.removeMember(team.id, target);
+        if (act === "back") await api.allowBack(team.id, target.uid);
+        again();
       } catch (e) {
         setMsg($("#amsg"), errorMessage(e));
         b.disabled = false;
@@ -142,29 +172,54 @@ export async function renderAccounts(el, me) {
     };
   });
 
+  /** Télécharge toutes les réponses de l'équipe en CSV (avant une suppression). */
+  async function archive(prefix) {
+    const [all, sessions] = await Promise.all([api.teamResponses(team.id), api.sessions(team.id)]);
+    const names = new Map(users.map((u) => [u.uid, u]));
+    const sess = new Map(sessions.map((x) => [x.id, x]));
+    if (all.length) {
+      downloadCsv(all.map((r) => ({
+        ...r,
+        name: names.get(r.uid)?.name ?? r.name,
+        poste: names.get(r.uid)?.poste || r.poste,
+        seance: sess.has(r.sessionId) ? sessionLabel(sess.get(r.sessionId)) : "",
+      })), `${prefix}-${slug(team.name)}`);
+    }
+    return all.length;
+  }
+
+  $("#delTeam").onclick = async () => {
+    const msg = $("#tmsg");
+    const typed = prompt(`Supprimer l'équipe « ${team.name} », ses séances et ses réponses ?\n\nTape le nom de l'équipe pour confirmer :`);
+    if (typed === null) return;
+    if (typed.trim() !== team.name.trim()) return setMsg(msg, "Suppression annulée (le nom ne correspond pas).");
+    const btn = $("#delTeam");
+    btn.disabled = true;
+    try {
+      setMsg(msg, "Export CSV en cours…", true);
+      await archive("archive-equipe");
+      setMsg(msg, "Suppression en cours…", true);
+      await api.deleteTeam(team.id);
+      on.deleted ? on.deleted(team.name) : again();
+    } catch (e) {
+      setMsg(msg, errorMessage(e));
+      btn.disabled = false;
+    }
+  };
+
   // Fin de saison
   $("#purge").onclick = async () => {
     const msg = $("#pmsg2");
-    const typed = prompt("Cette action supprime définitivement toutes les réponses et toutes les séances de la saison.\n\nTape SUPPRIMER pour confirmer :");
+    const typed = prompt(`Cette action supprime définitivement toutes les réponses et toutes les séances de « ${team.name} ».\n\nTape SUPPRIMER pour confirmer :`);
     if (typed === null) return;
     if (typed.trim().toUpperCase() !== "SUPPRIMER") return setMsg(msg, "Suppression annulée (mot de confirmation incorrect).");
     const btn = $("#purge");
     btn.disabled = true;
     try {
       setMsg(msg, "Export CSV en cours…", true);
-      const [all, sessions] = await Promise.all([api.teamResponses(null), api.sessions()]);
-      const names = new Map(users.map((u) => [u.uid, u]));
-      const sess = new Map(sessions.map((x) => [x.id, x]));
-      if (all.length) {
-        downloadCsv(all.map((r) => ({
-          ...r,
-          name: names.get(r.uid)?.name ?? r.name,
-          poste: names.get(r.uid)?.poste || r.poste,
-          seance: sess.has(r.sessionId) ? sessionLabel(sess.get(r.sessionId)) : "",
-        })), "archive-saison");
-      }
+      await archive("archive-saison");
       setMsg(msg, "Suppression en cours…", true);
-      const n = await api.purgeSeason();
+      const n = await api.purgeSeason(team.id);
       const pl = (k, w) => `${k} ${w}${k > 1 ? "s" : ""}`;
       setMsg(msg, n.responses || n.sessions
         ? `${pl(n.responses, "réponse")} et ${pl(n.sessions, "séance")} supprimées.${n.responses ? " L'archive CSV a été téléchargée." : ""}`
@@ -176,3 +231,4 @@ export async function renderAccounts(el, me) {
     }
   };
 }
+

@@ -6,12 +6,16 @@ rules_version = '2';
 //
 //  users/{uid}            profil : name, poste, role (ATHLETE|COACH|DEV), email, joinCode, consentAt, createdAt
 //                         DEV = développeur : mêmes droits qu'un coach, rôle attribuable UNIQUEMENT depuis la console Firebase
-//  responses/{uid_date}   une réponse par athlète et par séance
-//  teamCodes/{code}       codes d'équipe valides (lisibles par les coachs uniquement)
-//  removed/{uid}          membres retirés par un coach : ne peuvent plus se réinscrire
-//  sessions/{id}          séances planifiées par le coach (date, heure, titre)
+//  teams/{teamId}         équipes : name (le staff les crée, les renomme, les supprime)
+//  members/{teamId_uid}   appartenance d'un athlète à une équipe (rejointe avec le code de l'équipe)
+//  teamCodes/{code}       code d'inscription d'une équipe -> teamId (lisible si on connaît le code)
+//  removed/{teamId_uid}   athlètes retirés d'une équipe : ne peuvent plus la rejoindre
+//  sessions/{id}          séances planifiées par le coach (équipe, date, heure, titre)
 //  responses/{uid_sessionId}  une réponse par athlète et par séance
 //  meta/setup             créé une seule fois, quand le tout premier compte devient coach
+//  meta/teams             migration vers le multi-équipes effectuée (une seule fois)
+//
+//  Le staff (COACH ou DEV) gère toutes les équipes.
 // ─────────────────────────────────────────────────────────────────────────────
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -26,6 +30,10 @@ service cloud.firestore {
     function postes() { return ['1ère ligne', '2ème ligne', '3ème ligne', '9/10', 'Centres', 'Arrières']; }
     function isDate(d) { return d is string && d.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
     function sessionPath(id) { return /databases/$(database)/documents/sessions/$(id); }
+    function teamPath(t) { return /databases/$(database)/documents/teams/$(t); }
+    function memberPath(t, u) { return /databases/$(database)/documents/members/$(t + '_' + u); }
+    function isMember(t) { return t is string && exists(memberPath(t, request.auth.uid)); }
+    function teamExists(t) { return t is string && existsAfter(teamPath(t)); }
 
     function validName(n) { return n is string && n.trim().size() > 0 && n.size() <= 60; }
     // Un athlète a un poste ; un coach n'en a pas (chaîne vide), ou garde celui qu'il avait comme athlète.
@@ -47,13 +55,12 @@ service cloud.firestore {
           && d.createdAt == request.time;
       }
 
-      // Création : soit athlète avec un code d'équipe valide,
+      // Création : soit athlète avec un code d'équipe valide (il rejoint l'équipe dans le même lot),
       // soit tout premier compte de l'équipe (devient coach, crée meta/setup dans le même lot).
       allow create: if signedIn() && request.auth.uid == uid
         && validNewProfile(request.resource.data)
         && (
           (request.resource.data.role == 'ATHLETE'
-            && !exists(/databases/$(database)/documents/removed/$(uid))
             && request.resource.data.joinCode is string
             && exists(/databases/$(database)/documents/teamCodes/$(request.resource.data.joinCode)))
           ||
@@ -77,7 +84,7 @@ service cloud.firestore {
           && request.resource.data.role in ['ATHLETE', 'COACH'])   // DEV ne s'attribue pas depuis le site
       );
 
-      // Suppression : son propre compte (RGPD), ou un athlète retiré de l'équipe par un coach.
+      // Suppression : son propre compte (RGPD), ou un athlète retiré de sa dernière équipe par un coach.
       // Un coach ne peut pas être supprimé directement (qu'un autre coach le repasse d'abord athlète).
       allow delete: if signedIn() && resource.data.role == 'ATHLETE'
         && (request.auth.uid == uid || isCoach());
@@ -94,12 +101,15 @@ service cloud.firestore {
 
       function validResponse(r) {
         // (le champ 'opp' est demandé dans le questionnaire mais reste optionnel : des réponses ont été enregistrées sans lui)
-        return r.keys().hasOnly(['uid', 'name', 'poste', 'sessionId', 'date', 'mus', 'car', 'rep', 'conc', 'pla', 'conf', 'tec', 'tac', 'opp', 'blessure', 'gene', 'updatedAt'])
+        return r.keys().hasOnly(['uid', 'name', 'poste', 'teamId', 'sessionId', 'date', 'mus', 'car', 'rep', 'conc', 'pla', 'conf', 'tec', 'tac', 'opp', 'blessure', 'gene', 'updatedAt'])
           && r.uid == request.auth.uid
           && r.sessionId is string
           && id == r.uid + '_' + r.sessionId     // une seule réponse par athlète et par séance
           && exists(sessionPath(r.sessionId))    // la séance doit avoir été planifiée par le coach
           && get(sessionPath(r.sessionId)).data.date == r.date
+          && r.teamId == get(sessionPath(r.sessionId)).data.teamId
+          // il faut être membre de l'équipe de la séance (le staff peut répondre dans toutes les équipes)
+          && (isCoach() || isMember(r.teamId))
           && isDate(r.date) && notFuture(r.date)
           // athlètes, coachs et dev peuvent répondre ; seules les réponses des athlètes comptent dans le suivi
           && r.name == me().name && r.poste == me().poste
@@ -118,6 +128,10 @@ service cloud.firestore {
       allow list: if hasProfile() && (resource.data.uid == request.auth.uid || isCoach());
       allow create, update: if hasProfile() && validResponse(request.resource.data)
         && (resource == null || resource.data.uid == request.auth.uid);
+      // Migration multi-équipes : le staff rattache une ancienne réponse à une équipe (une seule fois).
+      allow update: if isCoach() && !('teamId' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['teamId'])
+        && teamExists(request.resource.data.teamId);
       // Suppression : ses propres réponses, ou n'importe lesquelles pour un coach (membre retiré, fin de saison).
       allow delete: if hasProfile() && (resource.data.uid == request.auth.uid || isCoach());
     }
@@ -125,7 +139,8 @@ service cloud.firestore {
     // ── Séances planifiées ─────────────────────────────────────────────────────
     match /sessions/{sid} {
       function validSession(d) {
-        return d.keys().hasOnly(['date', 'time', 'title', 'createdAt', 'createdBy'])
+        return d.keys().hasOnly(['teamId', 'date', 'time', 'title', 'createdAt', 'createdBy'])
+          && teamExists(d.teamId)
           && isDate(d.date)
           && d.time is string && (d.time == '' || d.time.matches('^[0-2][0-9]:[0-5][0-9]$'))
           && d.title is string && d.title.trim().size() > 0 && d.title.size() <= 60
@@ -135,17 +150,58 @@ service cloud.firestore {
       allow create: if isCoach() && validSession(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
       allow update: if isCoach() && validSession(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'time', 'title']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'time', 'title', 'teamId']);
       allow delete: if isCoach();
     }
 
-    // ── Membres retirés ────────────────────────────────────────────────────────
-    match /removed/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || isCoach());
+    // ── Équipes ────────────────────────────────────────────────────────────────
+    match /teams/{tid} {
+      function validTeam(d) { return d.keys().hasOnly(['name', 'createdAt', 'createdBy']) && validName(d.name); }
+      allow read: if hasProfile();
+      allow create: if isCoach() && validTeam(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time;
+      allow update: if isCoach() && validTeam(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+      allow delete: if isCoach();
+    }
+
+    // ── Membres d'une équipe ───────────────────────────────────────────────────
+    match /members/{id} {
+      function validMember(d) {
+        return d.keys().hasOnly(['uid', 'teamId', 'since', 'joinCode', 'at'])
+          && d.uid is string && d.teamId is string
+          && id == d.teamId + '_' + d.uid
+          && isDate(d.since)
+          && d.at == request.time;
+      }
+      function codeOf(c) { return /databases/$(database)/documents/teamCodes/$(c); }
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isCoach());
+      // Un athlète rejoint une équipe avec son code (sauf s'il en a été retiré).
+      allow create: if signedIn() && validMember(request.resource.data)
+        && (
+          (request.resource.data.uid == request.auth.uid
+            && (hasProfile() || existsAfter(userPath(request.auth.uid)))
+            && request.resource.data.joinCode is string
+            && exists(codeOf(request.resource.data.joinCode))
+            && get(codeOf(request.resource.data.joinCode)).data.teamId == request.resource.data.teamId
+            && !exists(/databases/$(database)/documents/removed/$(id)))
+          ||
+          (isCoach() && teamExists(request.resource.data.teamId))
+        );
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || isCoach());
+    }
+
+    // ── Athlètes retirés d'une équipe ──────────────────────────────────────────
+    match /removed/{id} {
+      allow get: if signedIn() && (resource.data.uid == request.auth.uid || isCoach());
       allow list: if isCoach();
-      allow create: if isCoach() && request.auth.uid != uid
-        && !existsAfter(userPath(uid))         // seulement avec la suppression du profil (donc jamais un coach ou un dev)
-        && request.resource.data.keys().hasOnly(['name', 'email', 'at', 'by'])
+      allow create: if isCoach()
+        && request.resource.data.keys().hasOnly(['uid', 'teamId', 'name', 'email', 'at', 'by'])
+        && id == request.resource.data.teamId + '_' + request.resource.data.uid
+        && request.resource.data.uid != request.auth.uid
+        && !existsAfter(memberPath(request.resource.data.teamId, request.resource.data.uid))  // avec le retrait de l'équipe
+        && (!existsAfter(userPath(request.resource.data.uid))                                // jamais un coach ou un dev
+            || getAfter(userPath(request.resource.data.uid)).data.role == 'ATHLETE')
         && request.resource.data.by == request.auth.uid
         && request.resource.data.at == request.time;
       allow delete: if isCoach();
@@ -153,12 +209,24 @@ service cloud.firestore {
 
     // ── Codes d'équipe ─────────────────────────────────────────────────────────
     match /teamCodes/{code} {
-      allow read: if isCoach();
-      allow create: if isCoach() && code.matches('^[A-Z0-9]{6,20}$')
-        && request.resource.data.keys().hasOnly(['createdAt', 'createdBy'])
+      // Connaître le code suffit pour le lire (c'est ce qui permet de rejoindre l'équipe) ; seul le staff les liste.
+      allow get: if signedIn();
+      allow list: if isCoach();
+      allow create, update: if isCoach() && code.matches('^[A-Z0-9]{6,20}$')
+        && request.resource.data.keys().hasOnly(['teamId', 'createdAt', 'createdBy'])
+        && teamExists(request.resource.data.teamId)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time;
       allow delete: if isCoach();
+    }
+
+    // ── Migration vers le multi-équipes (une seule fois) ───────────────────────
+    match /meta/teams {
+      allow read: if signedIn();
+      allow create: if isCoach()
+        && request.resource.data.keys().hasOnly(['teamId', 'at', 'by'])
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.at == request.time;
     }
 
     // ── Initialisation (premier coach) ─────────────────────────────────────────

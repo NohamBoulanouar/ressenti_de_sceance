@@ -60,6 +60,9 @@ npm run test:rules
 - **Retirer un membre** : le coach supprime le profil et toutes les réponses d'un athlète ; celui-ci ne peut plus se réinscrire (même avec le code) tant que le coach ne l'a pas « autorisé à revenir ». Son compte de connexion reste dans Firebase Authentication : le supprimer à la main dans la console si besoin.
 - **Fin de saison** : le coach supprime toutes les réponses et toutes les séances d'un clic (confirmation « SUPPRIMER »), après téléchargement automatique d'une archive CSV. Les comptes et le code d'équipe sont conservés.
 - **Code d'équipe** : sans lui, impossible de créer un profil. Le changer bloque les nouvelles inscriptions avec l'ancien code, sans toucher aux comptes existants.
+- **Plusieurs équipes** : après connexion, une page d'accueil liste les équipes (toutes pour le staff, les siennes pour un athlète). Le staff crée, renomme et supprime les équipes ; chaque équipe a son code, ses séances, ses réponses et ses membres. Un athlète peut rejoindre une autre équipe avec son code depuis l'accueil. Retirer un athlète le retire d'une seule équipe.
+- **Suivi (coach)** : une courbe par indicateur (moyenne par séance), avec la moyenne de la période, l'évolution entre les deux dernières séances (points et %) et la tendance sur la période. Filtres : plusieurs postes à la fois, exclusion des réponses avec blessure, une courbe par poste.
+- **Passage au multi-équipes** : à la première connexion d'un coach ou du dev après la mise à jour, les données existantes (code, séances, réponses, athlètes, retraits) sont rattachées automatiquement à une première équipe « Mon équipe », à renommer dans l'onglet « Équipe ».
 - **Séances planifiées** (onglet « Séances » du coach) : date, heure facultative, type (entraînement, match…), répétition hebdomadaire possible. Pour chaque séance passée : nombre de réponses et liste de ceux qui n'ont pas répondu. Supprimer une séance supprime ses réponses.
 - **Questionnaire** : l'athlète choisit une séance planifiée des 3 dernières semaines (pas de séance future), puis 8 lignes : un appui sur la ligne pose un ballon de rugby, qu'on peut ensuite faire glisser (aucune valeur affichée), blessure, gêne. **Une réponse par séance** : renvoyer pour la même séance remplace la réponse.
 - **Suivi coach**, deux vues :
@@ -79,10 +82,13 @@ npm run test:rules
 
 ### Données (Firestore)
 - `users/{uid}` : `name, poste, role, email, joinCode, consentAt, createdAt`
-- `sessions/{id}` : `date, time, title, createdAt, createdBy` (séances planifiées par le coach)
-- `responses/{uid}_{sessionId}` : `uid, name, poste, sessionId, date, mus, car, rep, conc, pla, conf, tec, tac, opp, blessure, gene, updatedAt`
-- `teamCodes/{code}` : codes valides
-- `removed/{uid}` : membres retirés (bloque la réinscription)
+- `teams/{teamId}` : `name, createdAt, createdBy`
+- `members/{teamId}_{uid}` : `uid, teamId, since, joinCode, at` (athlète membre d'une équipe)
+- `sessions/{id}` : `teamId, date, time, title, createdAt, createdBy` (séances planifiées par le coach)
+- `responses/{uid}_{sessionId}` : `uid, name, poste, teamId, sessionId, date, mus, car, rep, conc, pla, conf, tec, tac, opp, blessure, gene, updatedAt`
+- `teamCodes/{code}` : `teamId` (code d'inscription d'une équipe)
+- `removed/{teamId}_{uid}` : athlètes retirés d'une équipe (bloque leur retour dans cette équipe)
+- `meta/teams` : passage au multi-équipes effectué
 - `meta/setup` : marque que le premier coach existe
 
 ---

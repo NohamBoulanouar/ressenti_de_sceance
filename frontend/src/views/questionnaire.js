@@ -9,13 +9,13 @@ const WINDOW_DAYS = 21; // séances proposées : les 3 dernières semaines
  * Questionnaire de l'athlète : il répond à une séance planifiée par le coach.
  * flash = message à afficher après un envoi.
  */
-export async function renderQuestionnaire(el, me, flash) {
+export async function renderQuestionnaire(el, me, team, flash) {
   const still = claimView(el);
   el.innerHTML = `<div class="card"><div class="mu">Chargement des séances…</div></div>`;
 
   let sessions, mine;
   try {
-    [sessions, mine] = await Promise.all([api.sessions(), api.myResponses(200)]);
+    [sessions, mine] = await Promise.all([api.sessions(team.id), api.myResponses(team.id, 200)]);
   } catch (e) {
     if (still()) el.innerHTML = `<div class="card warn">${esc(errorMessage(e))}</div>`;
     return;
@@ -105,8 +105,8 @@ export async function renderQuestionnaire(el, me, flash) {
     const btn = $("#send");
     btn.disabled = true;
     try {
-      const res = await api.submit(me, { sessionId: s.id, date: s.date, ...form, blessure, gene: $("#ge").value.trim() });
-      renderQuestionnaire(el, me, res.updated ? `Réponse à « ${sessionLabel(s)} » mise à jour ✔` : "Merci, réponse enregistrée ✔");
+      const res = await api.submit(me, { teamId: team.id, sessionId: s.id, date: s.date, ...form, blessure, gene: $("#ge").value.trim() });
+      renderQuestionnaire(el, me, team, res.updated ? `Réponse à « ${sessionLabel(s)} » mise à jour ✔` : "Merci, réponse enregistrée ✔");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       setMsg(msg, errorMessage(e));

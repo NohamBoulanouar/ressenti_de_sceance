@@ -222,10 +222,77 @@ details summary { cursor: pointer; color: var(--rd); font-size: 13px; font-weigh
   margin: 6px 0 10px; padding: 14px 16px; background: var(--field); border-radius: var(--r-md); user-select: all; text-align: center;
 }
 
+/* ── Accueil : choix de l'équipe ────────────────────────────────────────── */
+.home-head { margin: 8px 0 4px; }
+.home-title { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; margin: 0 0 2px; }
+.teams { display: grid; gap: 10px; margin: 14px 0; }
+.team-tile {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px 18px; cursor: pointer; text-align: left;
+  background: var(--card); border: 1px solid var(--bd); border-radius: var(--r-lg); box-shadow: var(--shadow);
+  font: inherit; color: var(--tx); transition: border-color .15s, transform .1s;
+}
+.team-tile:hover { border-color: #cfccc4; }
+.team-tile:active { transform: scale(.995); }
+.team-dot {
+  width: 42px; height: 42px; flex-shrink: 0; border-radius: 13px; display: grid; place-items: center;
+  background: #e7f2ec; color: #1f7a4d; font-weight: 750; font-size: 18px;
+}
+.team-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.team-txt b { font-size: 16px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-go { color: var(--mu); font-size: 18px; }
+.team-switch {
+  display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; margin: -8px 0 12px; padding: 7px 14px;
+  background: var(--card); border: 1px solid var(--bd); border-radius: 99px; cursor: pointer; font: inherit; font-size: 14px; color: var(--tx);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.team-switch:hover { background: var(--ac2); }
+
+/* ── Filtres du suivi ───────────────────────────────────────────────────── */
+.flabel { margin: 14px 0 6px; font-size: 12px; font-weight: 650; color: var(--mu); text-transform: uppercase; letter-spacing: .05em; }
+.pchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pchip {
+  --c: var(--tx);
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; cursor: pointer;
+  border: 1px solid var(--bd); border-radius: 99px; background: var(--card); color: var(--soft);
+  font: inherit; font-size: 13px; font-weight: 550; transition: background .15s, border-color .15s, color .15s;
+}
+.pchip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); opacity: .35; }
+.pchip:hover { border-color: #cfccc4; color: var(--tx); }
+.pchip.on { background: var(--tx); border-color: var(--tx); color: var(--on-ac); }
+.pchip.on i { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9); }
+.toggles { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 14px; }
+.tgl { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--soft); cursor: pointer; }
+.tgl input { width: 18px; height: 18px; margin: 0; accent-color: var(--tx); }
+
+/* ── Graphiques par indicateur ──────────────────────────────────────────── */
+.theme { margin: 18px 0 8px; font-size: 12px; font-weight: 650; color: var(--mu); text-transform: uppercase; letter-spacing: .05em; }
+.mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+.mcard { border: 1px solid var(--bd); border-radius: var(--r-md); padding: 14px 14px 10px; background: #fdfdfc; }
+.mcard.flat { margin: 0 0 12px; max-width: 520px; }
+.mhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.mname { font-size: 14px; font-weight: 600; }
+.mval { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.mstats { font-size: 13px; line-height: 1.5; margin: 2px 0 6px; min-height: 40px; }
+.mstats b { color: var(--tx); font-variant-numeric: tabular-nums; }
+.delta { font-weight: 650; font-variant-numeric: tabular-nums; }
+.delta.up { color: var(--ok); }
+.delta.down { color: var(--rd); }
+.delta.flat { color: var(--soft); }
+.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .mean { stroke: var(--mu); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart .hl { fill: #e7f2ec; }
+.chart .ax { fill: var(--mu); font-size: 9px; font-family: inherit; }
+.chart-empty { padding: 26px 0; text-align: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; font-size: 12px; color: var(--soft); }
+.legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: 3px; }
+tr.out td { opacity: .45; }
+
 @media (max-width: 480px) {
   main { padding: 14px 12px 40px; }
   .card { padding: 16px; border-radius: 16px; }
   .row .n { width: 120px; }
   .top-actions .link { padding: 6px; }
   .tabs button { font-size: 12px; padding: 9px 2px; }
+  .mgrid { grid-template-columns: 1fr; }
 }
