@@ -93,7 +93,7 @@ service cloud.firestore {
       }
 
       function validResponse(r) {
-        // (le champ 'opp' n'est plus demandé : il reste accepté pour les anciennes réponses)
+        // (le champ 'opp' est demandé dans le questionnaire mais reste optionnel : des réponses ont été enregistrées sans lui)
         return r.keys().hasOnly(['uid', 'name', 'poste', 'sessionId', 'date', 'mus', 'car', 'rep', 'conc', 'pla', 'conf', 'tec', 'tac', 'opp', 'blessure', 'gene', 'updatedAt'])
           && r.uid == request.auth.uid
           && r.sessionId is string

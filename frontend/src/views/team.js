@@ -137,7 +137,7 @@ function sessionView(session, rows) {
     <tr><th>Joueur</th><th>Poste</th>${KEYS.map((k) => `<th>${SHORT[k]}</th>`).join("")}<th>Blessure</th><th>Gêne</th></tr>
     ${[...rows].sort((a, b) => a.name.localeCompare(b.name, "fr")).map((r) => `<tr>
       <td>${esc(r.name)}</td><td>${esc(r.poste)}</td>
-      ${KEYS.map((k) => `<td class="${flag(k, r[k]) ? "warn" : ""}">${r[k]}</td>`).join("")}
+      ${KEYS.map((k) => `<td class="${flag(k, r[k]) ? "warn" : ""}">${r[k] ?? "–"}</td>`).join("")}
       <td class="${r.blessure ? "warn" : ""}">${r.blessure ? "Oui" : "Non"}</td>
       <td class="l">${esc(r.gene || "")}</td>
     </tr>`).join("")}

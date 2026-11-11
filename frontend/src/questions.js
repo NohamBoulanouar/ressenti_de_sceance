@@ -13,10 +13,11 @@ export const QS = [
   ["Rugby", [
     ["tec", "Maîtrise technique", "Comment as-tu ressenti ta maîtrise technique (passes, plaquages, rucks…) ?", "Très mauvaise", "Excellente"],
     ["tac", "Maîtrise tactique", "Comment as-tu ressenti ta lecture du jeu et ta compréhension des systèmes ?", "Perdu", "Très à l'aise"],
+    ["opp", "Opposition", "Comment as-tu ressenti la difficulté de l'opposition ?", "Beaucoup trop faible", "Beaucoup trop forte"],
   ]],
 ];
 
 export const KEYS = QS.flatMap(([, qs]) => qs.map((q) => q[0]));
 export const LABELS = Object.fromEntries(QS.flatMap(([, qs]) => qs.map((q) => [q[0], q[1]])));
-export const SHORT = { mus: "Musc.", car: "Cardio", rep: "Répét.", conc: "Conc.", pla: "Plaisir", conf: "Conf.", tec: "Tech.", tac: "Tact." };
+export const SHORT = { mus: "Musc.", car: "Cardio", rep: "Répét.", conc: "Conc.", pla: "Plaisir", conf: "Conf.", tec: "Tech.", tac: "Tact.", opp: "Opp." };
 export const POSTES = ["1ère ligne", "2ème ligne", "3ème ligne", "9/10", "Centres", "Arrières"];
